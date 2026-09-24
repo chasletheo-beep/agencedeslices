@@ -46,6 +46,27 @@ données.
 - Un onglet « Poser une question » permet d'interroger les données (baux proches,
   relances en retard, entreprises en mouvement, meilleurs scores), en local ou via l'IA.
 
+**Onglet « Prospecter » — trouver et importer des entreprises rennaises :**
+- **Recherche officielle** : cherche n'importe quelle entreprise française (nom ou
+  activité, filtrée sur le département 35) dans la base officielle
+  [recherche-entreprises.api.gouv.fr](https://recherche-entreprises.api.gouv.fr/) —
+  gratuite, publique, sans clé. Chaque résultat s'ajoute en un clic comme contact
+  prestataire ou comme entreprise occupante d'un immeuble (adresse, SIREN, activité et
+  tranche d'effectif pré-remplis automatiquement).
+- Ce même moteur de recherche est aussi intégré directement dans les formulaires
+  « Nouveau contact » et « Nouvelle entreprise », pour compléter une fiche sans tout
+  ressaisir à la main.
+- **Import en masse** : colle un tableau (Excel, Google Sheets, export CSV — colonnes
+  `nom / secteur / adresse / téléphone / email / notes` dans n'importe quel ordre) pour
+  ajouter d'un coup une liste entière de prospects au carnet de contacts.
+
+**Historique terrain structuré :** chaque entreprise occupante a désormais un historique
+horodaté (au lieu d'un simple champ notes) — chaque note traitée par l'Agent IA y est
+ajoutée avec la date et le prénom de la personne qui l'a saisie (cliquer sur le badge en
+bas à gauche de l'écran pour définir son prénom, stocké uniquement dans le navigateur).
+Quand une note terrain ne correspond à aucune fiche existante, l'Agent IA propose
+directement de créer la fiche entreprise ou contact correspondante.
+
 **Stockage des données :** comme pour le reste de l'outil, par défaut tout reste dans le
 navigateur (localStorage). Pour une synchro multi-appareils/équipe, renseigner
 `SUPABASE_URL` / `SUPABASE_ANON_KEY` en haut du fichier (compte Supabase gratuit,

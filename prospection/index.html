@@ -488,6 +488,31 @@ function setAiSettings(key, model){
   }catch(e){}
 }
 
+/* ============ IDENTITÉ LOCALE ============
+   Un simple prénom stocké dans ce navigateur, pour savoir qui a saisi quelle note
+   terrain quand plusieurs commerciaux partagent le même carnet (via Supabase). */
+const USER_NAME_STORAGE = 'agentia_user_name';
+function getAgentName(){ try{ return localStorage.getItem(USER_NAME_STORAGE) || ''; }catch(e){ return ''; } }
+function setAgentName(name){ try{ localStorage.setItem(USER_NAME_STORAGE, (name||'').trim()); }catch(e){} }
+function addHistorique(record, texte, source){
+  if(!record.historique) record.historique = [];
+  record.historique.unshift({ id:uid(), ts:Date.now(), texte, auteur: getAgentName()||'Équipe', source: source||'manuel' });
+  record.historique = record.historique.slice(0, 100);
+}
+function userBadge(){
+  const b = document.createElement('button');
+  b.id = 'userBadge';
+  b.className = 'sync-badge sync-off';
+  b.style.right = 'auto'; b.style.left = '14px'; b.style.cursor='pointer'; b.style.border='none';
+  b.innerHTML = '👤 ' + esc(getAgentName() || 'Définir mon prénom');
+  b.title = "Cliquer pour changer le prénom affiché sur tes notes terrain (stocké uniquement dans ce navigateur).";
+  b.onclick = () => {
+    const name = prompt('Ton prénom (affiché sur les notes que tu ajoutes) :', getAgentName());
+    if(name!==null){ setAgentName(name); b.innerHTML = '👤 ' + esc(getAgentName() || 'Définir mon prénom'); }
+  };
+  document.body.appendChild(b);
+}
+
 /* ============ COUCHE DE STOCKAGE (Supabase → sinon localStorage) ============ */
 const DB = (function(){
   const useSupabase = !!(SUPABASE_URL && SUPABASE_ANON_KEY);
@@ -572,6 +597,79 @@ const SCORE_CRITERIA = [
   { key:"croissance",    label:"Forte croissance",              pts:15 },
   { key:"bailAncien",    label:"Bail ancien (> 5 ans)",         pts:20 },
 ];
+
+/* ============ ENRICHISSEMENT — Base officielle des entreprises (recherche-entreprises.api.gouv.fr) ============
+   API publique, gratuite, sans clé, gérée par l'État. Sert à retrouver rapidement une
+   entreprise (nom, adresse, SIREN, activité, tranche d'effectif) pour compléter une
+   fiche en un clic au lieu de tout ressaisir à la main. */
+const TRANCHE_EFFECTIF = {
+  '00':'0 salarié','01':'1 à 2 salariés','02':'3 à 5 salariés','03':'6 à 9 salariés',
+  '11':'10 à 19 salariés','12':'20 à 49 salariés','21':'50 à 99 salariés','22':'100 à 199 salariés',
+  '31':'200 à 249 salariés','32':'250 à 499 salariés','41':'500 à 999 salariés','42':'1000 à 1999 salariés',
+  '51':'2000 à 4999 salariés','52':'5000 à 9999 salariés','53':'10000 salariés ou plus',
+};
+function effectifLabel(code){ return TRANCHE_EFFECTIF[code] || ''; }
+function effectifAtLeast100(code){ return ['22','31','32','41','42','51','52','53'].includes(code); }
+
+function mapSireneResult(r){
+  const siege = r.siege || {};
+  const voie = [siege.numero_voie, siege.type_voie, siege.libelle_voie].filter(Boolean).join(' ');
+  const adresse = siege.adresse || [voie, siege.code_postal, siege.libelle_commune].filter(Boolean).join(' ').trim();
+  const trancheCode = siege.tranche_effectif_salarie || r.tranche_effectif_salarie || '';
+  return {
+    nom: r.nom_complet || r.nom_raison_sociale || r.nom_complet_court || r.nom || '',
+    siren: r.siren || '',
+    adresse: adresse || '',
+    activite: r.activite_principale || siege.activite_principale || siege.libelle_code_naf || siege.activite_principale_libelle || '',
+    trancheCode,
+    effectifLabel: effectifLabel(trancheCode),
+    lat: siege.latitude ? parseFloat(siege.latitude) : null,
+    lng: siege.longitude ? parseFloat(siege.longitude) : null,
+  };
+}
+
+async function searchEntreprisesAPI(q, departement){
+  if(!q || q.trim().length<2) return [];
+  try{
+    let url = 'https://recherche-entreprises.api.gouv.fr/search?q='+encodeURIComponent(q.trim())+'&per_page=8';
+    if(departement) url += '&departement='+encodeURIComponent(departement);
+    const res = await fetch(url, { headers:{'Accept':'application/json'} });
+    if(!res.ok) return [];
+    const data = await res.json();
+    return (data.results||[]).map(mapSireneResult).filter(x=>x.nom);
+  }catch(e){ console.warn('Recherche entreprises (API gouv) indisponible', e); return []; }
+}
+
+/* Widget de recherche réutilisable : injecte les résultats dans #sireneResults et
+   appelle onPick(resultatMappé) quand on en choisit un. */
+function bindSireneSearch(overlay, onPick){
+  const input = overlay.querySelector('#sireneQ');
+  const box = overlay.querySelector('#sireneResults');
+  if(!input || !box) return;
+  let timer = null;
+  input.oninput = () => {
+    clearTimeout(timer);
+    const q = input.value.trim();
+    if(q.length < 2){ box.innerHTML = ''; return; }
+    timer = setTimeout(async () => {
+      box.innerHTML = '<div class="muted small">Recherche…</div>';
+      const results = await searchEntreprisesAPI(q, '35');
+      if(!results.length){ box.innerHTML = '<div class="muted small">Aucun résultat (ou recherche indisponible hors-ligne).</div>'; return; }
+      box.innerHTML = results.map((r,i)=>`<div class="dest-row" style="cursor:pointer;" data-sidx="${i}"><div><div class="dest-nom">${esc(r.nom)}</div><div class="dest-org">${esc(r.adresse)}${r.activite?' · '+esc(r.activite):''}${r.effectifLabel?' · '+esc(r.effectifLabel):''}</div></div><span class="chip">Choisir</span></div>`).join('');
+      box.querySelectorAll('[data-sidx]').forEach(row=>{
+        row.onclick = () => { onPick(results[parseInt(row.dataset.sidx,10)]); box.innerHTML=''; input.value=''; };
+      });
+    }, 380);
+  };
+}
+function sireneSearchBox(hint){
+  return `<div class="score-box" style="margin-bottom:14px;">
+    <div class="score-title">Recherche officielle (base entreprises françaises)</div>
+    <input type="text" id="sireneQ" placeholder="Nom de l'entreprise…">
+    <div id="sireneResults" style="margin-top:8px;display:flex;flex-direction:column;gap:6px;"></div>
+    <div class="diff-hint" style="margin-top:6px;">${hint||"Recherche gratuite sur la base officielle des entreprises françaises. Choisis un résultat pour pré-remplir la fiche."}</div>
+  </div>`;
+}
 
 let STATE = {
   view: "contacts",          // 'contacts' | 'immeubles' | 'dashboard'
@@ -754,6 +852,7 @@ function render(){
   else if(STATE.view === 'dashboard'){ renderDashboard(); }
   else if(STATE.view === 'diffusion'){ renderDiffusion(); }
   else if(STATE.view === 'agent'){ renderAgent(); }
+  else if(STATE.view === 'prospecter'){ renderProspecter(); }
   else { renderContacts(); }
 }
 
@@ -763,6 +862,7 @@ function modeBar(active){
     <button class="mode-tab ${active==='contacts'?'active':''}" data-mode="contacts">${iconUsers()} Contacts par métier</button>
     <button class="mode-tab ${active==='adresses'?'active':''}" data-mode="adresses">${iconPin()} Adresses</button>
     <button class="mode-tab ${active==='immeubles'?'active':''}" data-mode="immeubles">${iconBuilding()} Immeubles &amp; entreprises</button>
+    <button class="mode-tab ${active==='prospecter'?'active':''}" data-mode="prospecter">${iconSearch()} Prospecter</button>
     <button class="mode-tab ${active==='diffusion'?'active':''}" data-mode="diffusion">${iconSend()} Diffusion d'offre</button>
     <button class="mode-tab ${active==='agent'?'active':''}" data-mode="agent">${iconBot()} Agent IA</button>
     <button class="mode-tab ${active==='dashboard'?'active':''}" data-mode="dashboard">${iconGrid()} Tableau de bord</button>
@@ -1473,16 +1573,18 @@ function openImmeubleModal(im){
 }
 
 /* ---- Modal entreprise ---- */
-function openEntrepriseModal(im, e){
+function openEntrepriseModal(im, e, prefillNom){
   const isNew = !e;
-  e = e || {};
+  e = e || { nom: prefillNom||'' };
   const flags = e.scoreFlags || {};
+  const historique = e.historique || [];
   const overlay = document.createElement('div');
   overlay.className='overlay';
   overlay.innerHTML = `
     <div class="modal">
       <div class="modal-head"><h2>${isNew?'Nouvelle entreprise':'Modifier l’entreprise'}</h2><button class="icon-btn" id="mClose">✕</button></div>
       <div class="modal-body">
+        ${isNew ? sireneSearchBox() : ''}
         <label>Nom de l'entreprise *<input type="text" id="eNom" value="${esc(e.nom||'')}"></label>
         <div class="form-row">
           <label>Activité<input type="text" id="eActivite" value="${esc(e.activite||'')}"></label>
@@ -1515,7 +1617,13 @@ function openEntrepriseModal(im, e){
             ${SCORE_CRITERIA.map(c=>`<label class="score-flag"><input type="checkbox" data-flag="${c.key}" ${flags[c.key]?'checked':''}> ${esc(c.label)} <span class="pts">+${c.pts}</span></label>`).join('')}
           </div>
         </div>
-        <label>Historique / notes de prospection<textarea id="eNotes" rows="3">${esc(e.notes||'')}</textarea></label>
+        ${historique.length ? `<div class="score-box">
+          <div class="score-title">Historique terrain (${historique.length})</div>
+          <div class="agent-log" style="max-height:180px;">
+            ${historique.slice(0,20).map(h=>`<div class="log-item"><div class="log-head"><span>${esc(h.auteur||'—')}</span><span class="log-date">${new Date(h.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit',year:'2-digit'})}</span></div><div class="log-txt">${esc(h.texte)}</div></div>`).join('')}
+          </div>
+        </div>` : ''}
+        <label>Notes complémentaires<textarea id="eNotes" rows="3" placeholder="Notes libres (l'historique terrain ci-dessus est alimenté automatiquement par l'Agent IA)">${esc(e.notes||'')}</textarea></label>
       </div>
       <div class="modal-foot">
         ${!isNew?`<button class="btn btn-danger-ghost" id="mDelete">Supprimer</button>`:'<span></span>'}
@@ -1526,6 +1634,16 @@ function openEntrepriseModal(im, e){
       </div>
     </div>`;
   document.body.appendChild(overlay);
+  if(isNew){
+    bindSireneSearch(overlay, (r)=>{
+      overlay.querySelector('#eNom').value = r.nom;
+      if(r.activite) overlay.querySelector('#eActivite').value = r.activite;
+      if(r.effectifLabel) overlay.querySelector('#eEffectif').value = r.effectifLabel;
+      if(r.siren) overlay.querySelector('#eSiren').value = r.siren;
+      if(effectifAtLeast100(r.trancheCode)){ const cb = overlay.querySelector('[data-flag="effectif100"]'); if(cb) cb.checked = true; }
+      showToast('Fiche pré-remplie depuis la base officielle');
+    });
+  }
   const close = ()=> overlay.remove();
   overlay.querySelector('#mClose').onclick = close;
   overlay.querySelector('#mCancel').onclick = close;
@@ -2106,6 +2224,8 @@ function renderDashboard(){
     .sort((a,b)=> CYCLE_VIE.findIndex(c=>c.key===b.e.cycleVie) - CYCLE_VIE.findIndex(c=>c.key===a.e.cycleVie));
   // relances contacts
   const relances = STATE.contacts.filter(c=>c.relance).map(c=>({c, d:new Date(c.relance)})).sort((a,b)=>a.d-b.d).slice(0,8);
+  const relancesDues = STATE.contacts.filter(c=>c.relance && relanceClass(c.relance)!=='' && relanceClass(c.relance)!=='empty');
+  const recentLog = (STATE.agentLog||[]).slice(0,5);
 
   app.innerHTML = `
     <header class="top">
@@ -2116,6 +2236,8 @@ function renderDashboard(){
       </div>
     </header>
     ${modeBar('dashboard')}
+
+    ${relancesDues.length ? `<div class="alert-strip">${iconPin()} <strong>Aujourd'hui : ${relancesDues.length} relance(s) due(s) ou en retard</strong> — ${relancesDues.slice(0,3).map(c=>esc(c.nom)).join(' · ')}${relancesDues.length>3?' …':''}</div>` : ''}
 
     <section class="stats">
       <div class="stat-card total"><div class="num">${STATE.contacts.length}</div><div class="lbl">Contacts métier</div></div>
@@ -2147,6 +2269,10 @@ function renderDashboard(){
       <div class="dash-card">
         <h4>Prochaines échéances de bail (toutes)</h4>
         ${baux.length ? `<ul class="dash-list">${baux.slice(0,10).map(b=>`<li data-goto="${b.im.id}"><span>${esc(b.e.nom)} <span class="muted">· ${esc(b.im.nom)}</span></span><span class="bail-badge ${b.bi.cls}">${b.bi.fin.toLocaleDateString('fr-FR',{month:'short',year:'numeric'})}</span></li>`).join('')}</ul>` : `<div class="muted small">Renseigne les baux pour voir les échéances.</div>`}
+      </div>
+      <div class="dash-card">
+        <h4>${iconBot()} Activité récente (Agent IA)</h4>
+        ${recentLog.length ? `<ul class="dash-list">${recentLog.map(l=>`<li><span>${esc(l.matchLabel||'Sans fiche associée')} <span class="muted">· ${new Date(l.ts).toLocaleDateString('fr-FR',{day:'2-digit',month:'2-digit'})}</span></span><span class="log-tag ${l.outcome==='applied'?'applied':'ignored'}">${l.outcome==='applied'?'Appliqué':'Ignoré'}</span></li>`).join('')}</ul>` : `<div class="muted small">Aucune note terrain traitée pour l'instant — direction l'onglet Agent IA.</div>`}
       </div>
     </div>
   `;
@@ -2235,9 +2361,9 @@ function addSector(){
 }
 
 /* ============ MODAL ============ */
-function openModal(contact){
+function openModal(contact, prefillNom){
   const isEdit = !!contact;
-  const c = contact || { id:null, nom:'', secteur:STATE.sectorsList[0]||'Autre', adresse:'', telephone:'', email:'', site:'', statut:'prospecter', dateContact:'', relance:'', notes:'' };
+  const c = contact || { id:null, nom:prefillNom||'', secteur:STATE.sectorsList[0]||'Autre', adresse:'', telephone:'', email:'', site:'', statut:'prospecter', dateContact:'', relance:'', notes:'' };
   const overlay = document.createElement('div');
   overlay.className = 'overlay';
   overlay.innerHTML = `
@@ -2247,6 +2373,7 @@ function openModal(contact){
         <button class="icon-btn" id="modalClose">${iconTrash ? '' : ''}✕</button>
       </div>
       <div class="modal-body">
+        ${sireneSearchBox()}
         <div class="form-grid">
           <div class="field full">
             <label>Nom / Entreprise</label>
@@ -2304,6 +2431,14 @@ function openModal(contact){
   `;
   document.body.appendChild(overlay);
   document.getElementById('f_nom').focus();
+  bindSireneSearch(overlay, (r)=>{
+    document.getElementById('f_nom').value = r.nom;
+    if(r.adresse) document.getElementById('f_adresse').value = r.adresse;
+    const notesEl = document.getElementById('f_notes');
+    const sirenLine = `SIREN ${r.siren}${r.activite?' · '+r.activite:''}${r.effectifLabel?' · '+r.effectifLabel:''}`;
+    notesEl.value = notesEl.value ? notesEl.value+'\n'+sirenLine : sirenLine;
+    showToast('Fiche pré-remplie depuis la base officielle');
+  });
 
   const close = () => overlay.remove();
   overlay.onclick = (e) => { if(e.target === overlay) close(); };
@@ -2396,6 +2531,16 @@ function buildEntityIndex(){
   return list;
 }
 
+const GUESS_LEADIN_WORDS = new Set(['le','la','les','un','une','des','ce','cette','ces','nouvelle','nouveau','nouvelles','nouveaux','notre','nos','rendez','rendez-vous','visite','appel','note','aujourd']);
+function guessNameFromText(text){
+  const matches = [...(text||'').matchAll(/[A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'&\-]*(?:\s+(?:&|et|de|du|des|le|la|l'|d')?\s*[A-ZÉÈÀÂÎÔÛÇ][\wÀ-ÿ'&\-]*){0,3}/g)]
+    .map(m=>m[0].trim())
+    .filter(m=> !GUESS_LEADIN_WORDS.has(normText(m.split(' ')[0])));
+  if(!matches.length) return '';
+  matches.sort((a,b)=> (b.split(' ').length - a.split(' ').length) || (b.length - a.length));
+  return matches[0];
+}
+
 function matchEntities(text){
   const norm = normText(text);
   if(!norm) return [];
@@ -2405,10 +2550,15 @@ function matchEntities(text){
     if(!nlabel) return { ...ent, score:0 };
     // correspondance mot à mot uniquement (évite qu'un fragment comme "sit" matche dans "visite")
     if(new RegExp('(^|\\s)'+nlabel+'(\\s|$)').test(norm)) return { ...ent, score:100 };
-    const tokens = nlabel.split(' ').filter(t=>t.length>=3 && !STOP_TOKENS.has(t));
+    const tokens = nlabel.split(' ').filter(t=>t.length>=4 && !STOP_TOKENS.has(t));
     if(!tokens.length) return { ...ent, score:0 };
-    const matched = tokens.filter(t=>noteWords.has(t)).length;
-    return { ...ent, score: matched ? Math.round((matched/tokens.length)*85) : 0 };
+    const matchedTokens = tokens.filter(t=>noteWords.has(t));
+    if(!matchedTokens.length) return { ...ent, score:0 };
+    // un seul mot-clé commun ne suffit à rapprocher deux fiches que s'il est assez long
+    // pour être spécifique (évite qu'un mot ordinaire comme "vue" crée un faux positif)
+    const strongEnough = matchedTokens.length>=2 || matchedTokens.some(t=>t.length>=6);
+    if(!strongEnough) return { ...ent, score:0 };
+    return { ...ent, score: Math.round((matchedTokens.length/tokens.length)*85) };
   }).filter(x=>x.score>0);
   scored.sort((a,b)=>b.score-a.score);
   return scored.slice(0,8);
@@ -2568,7 +2718,10 @@ async function applyAgentSuggestion(){
     if(!cb.checked) return;
     const ch = sug.changes[parseInt(cb.dataset.idx,10)];
     if(!ch || !ch.appliesTo.includes(sug.matchType)) return;
-    if(ch.field==='note'){ record.notes = (record.notes ? record.notes+'\n' : '') + ch.value; }
+    if(ch.field==='note'){
+      if(sug.matchType==='entreprise'){ addHistorique(record, ch.value, sug.source); }
+      else { record.notes = (record.notes ? record.notes+'\n' : '') + ch.value; }
+    }
     else if(ch.field.startsWith('flag:')){ const k=ch.field.slice(5); if(!record.scoreFlags) record.scoreFlags={}; record.scoreFlags[k]=true; }
     else { record[ch.field] = ch.value; }
     applied.push(ch.label);
@@ -2759,6 +2912,19 @@ function renderSuggestionBox(sug){
       <button class="btn btn-primary" id="btnApplySuggestion">${iconEdit()} Appliquer à la fiche</button>
       <button class="btn btn-ghost" id="btnIgnoreSuggestion">Ignorer</button>
     </div>
+    ${!sug.matchType ? `
+    <div style="margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);">
+      <label style="margin-bottom:4px;">Cette note parle d'une entreprise qui n'est pas encore dans le carnet ?</label>
+      <input type="text" id="sgNewNom" value="${esc(guessNameFromText(sug.rawText))}" placeholder="Nom de la nouvelle fiche" style="margin-bottom:8px;">
+      <div class="agent-actions">
+        <button class="btn btn-ghost btn-sm" id="btnNewContact">${iconPlus(14)} Créer une fiche contact (prestataire)</button>
+        <select id="sgImmeubleSelect" style="max-width:220px;">
+          <option value="">— Choisir un immeuble —</option>
+          ${STATE.immeubles.map(im=>`<option value="${im.id}">${esc(im.nom)} · ${esc(zoneOf(im))}</option>`).join('')}
+        </select>
+        <button class="btn btn-ghost btn-sm" id="btnNewEnt">${iconPlus(14)} Créer une fiche entreprise dans cet immeuble</button>
+      </div>
+    </div>` : ''}
   </div>`;
 }
 
@@ -2844,7 +3010,161 @@ function renderAgent(){
     if(applyBtn) applyBtn.onclick = applyAgentSuggestion;
     const ignoreBtn = document.getElementById('btnIgnoreSuggestion');
     if(ignoreBtn) ignoreBtn.onclick = ignoreAgentSuggestion;
+    const newContactBtn = document.getElementById('btnNewContact');
+    if(newContactBtn) newContactBtn.onclick = () => openModal(null, document.getElementById('sgNewNom').value.trim());
+    const newEntBtn = document.getElementById('btnNewEnt');
+    if(newEntBtn) newEntBtn.onclick = () => {
+      const im = STATE.immeubles.find(x=>x.id===document.getElementById('sgImmeubleSelect').value);
+      if(!im){ showToast("Choisis d'abord un immeuble."); return; }
+      openEntrepriseModal(im, null, document.getElementById('sgNewNom').value.trim());
+    };
   }
+}
+
+/* =========================================================================
+   PROSPECTER — recherche officielle (base entreprises françaises) + import
+   en masse. But : se rapprocher de « toutes les entreprises rennaises »
+   sans ressaisie manuelle fastidieuse.
+   ========================================================================= */
+function parseDelimited(text){
+  const lines = (text||'').split(/\r\n|\n|\r/).filter(l=>l.trim().length);
+  if(!lines.length) return { headers:[], rows:[] };
+  const sample = lines[0];
+  const delim = (sample.split('\t').length > sample.split(';').length && sample.split('\t').length > sample.split(',').length) ? '\t'
+    : (sample.split(';').length >= sample.split(',').length ? ';' : ',');
+  function splitLine(line){
+    const out = []; let cur=''; let inQ=false;
+    for(let i=0;i<line.length;i++){
+      const c = line[i];
+      if(c === '"'){ if(inQ && line[i+1]==='"'){ cur+='"'; i++; } else { inQ=!inQ; } }
+      else if(c===delim && !inQ){ out.push(cur); cur=''; }
+      else cur+=c;
+    }
+    out.push(cur);
+    return out.map(s=>s.trim());
+  }
+  const headers = splitLine(lines[0]).map(h=>h.toLowerCase());
+  const rows = lines.slice(1).map(splitLine);
+  return { headers, rows };
+}
+function mapImportRow(headers, row){
+  const get = (keys) => { for(const k of keys){ const idx = headers.indexOf(k); if(idx>=0 && row[idx]) return row[idx]; } return ''; };
+  return {
+    nom: get(['nom','name','entreprise','société','societe','raison sociale']),
+    secteur: get(['secteur','metier','métier','activite','activité','category']) || 'Autre',
+    adresse: get(['adresse','address']),
+    telephone: get(['telephone','téléphone','tel','phone']),
+    email: get(['email','mail','e-mail']),
+    notes: get(['notes','note','commentaire','commentaires']),
+  };
+}
+function previewImport(text){
+  const box = document.getElementById('importPreview');
+  const { headers, rows } = parseDelimited(text);
+  if(!rows.length){ box.innerHTML = '<div class="muted small">Rien à prévisualiser — colle un tableau avec une ligne d\'en-tête.</div>'; return; }
+  const mapped = rows.map(r=>mapImportRow(headers,r)).filter(m=>m.nom);
+  box.innerHTML = `<div class="muted small" style="margin-bottom:6px;">${mapped.length} ligne(s) reconnue(s) sur ${rows.length}.</div>` +
+    `<div class="table-wrap" style="max-height:220px;"><table><thead><tr><th>Nom</th><th>Secteur</th><th>Adresse</th></tr></thead><tbody>${mapped.slice(0,15).map(m=>`<tr><td>${esc(m.nom)}</td><td>${esc(m.secteur)}</td><td>${esc(m.adresse)}</td></tr>`).join('')}</tbody></table></div>`;
+}
+async function importContactsCSV(text){
+  const { headers, rows } = parseDelimited(text);
+  const mapped = rows.map(r=>mapImportRow(headers,r)).filter(m=>m.nom);
+  if(!mapped.length){ showToast("Aucune ligne exploitable — vérifie la colonne « nom »."); return; }
+  mapped.forEach(m=>{
+    if(!STATE.sectorsList.includes(m.secteur)) STATE.sectorsList.push(m.secteur);
+    STATE.contacts.push({ id:uid(), createdAt:Date.now(), site:'', statut:'prospecter', dateContact:'', relance:'', ...m });
+  });
+  await saveContacts(); await saveSectors();
+  showToast(`${mapped.length} contact(s) importé(s)`);
+  document.getElementById('importCsv').value='';
+  document.getElementById('importPreview').innerHTML='';
+}
+
+let PROSP_RESULTS = [];
+async function runProspSearch(){
+  const q = document.getElementById('prospQ').value.trim();
+  const dept = document.getElementById('prospDept').value.trim();
+  const box = document.getElementById('prospResults');
+  if(q.length<2){ showToast('Tape au moins 2 caractères.'); return; }
+  box.innerHTML = '<div class="muted small">Recherche…</div>';
+  PROSP_RESULTS = await searchEntreprisesAPI(q, dept);
+  if(!PROSP_RESULTS.length){ box.innerHTML = '<div class="muted small">Aucun résultat (ou recherche indisponible hors-ligne).</div>'; return; }
+  box.innerHTML = PROSP_RESULTS.map((r,i)=>`
+    <div class="dest-row">
+      <div>
+        <div class="dest-nom">${esc(r.nom)}</div>
+        <div class="dest-org">${esc(r.adresse)}${r.activite?' · '+esc(r.activite):''}${r.effectifLabel?' · '+esc(r.effectifLabel):''}${r.siren?' · SIREN '+esc(r.siren):''}</div>
+      </div>
+      <div class="row-actions">
+        <button class="btn btn-ghost btn-sm" data-act="contact" data-ridx="${i}">+ Contact</button>
+        <button class="btn btn-ghost btn-sm" data-act="ent" data-ridx="${i}">+ Entreprise</button>
+      </div>
+    </div>`).join('');
+  box.querySelectorAll('[data-act="contact"]').forEach(btn=>{ btn.onclick = ()=> addProspAsContact(PROSP_RESULTS[parseInt(btn.dataset.ridx,10)]); });
+  box.querySelectorAll('[data-act="ent"]').forEach(btn=>{ btn.onclick = ()=> addProspAsEntreprise(PROSP_RESULTS[parseInt(btn.dataset.ridx,10)]); });
+}
+async function addProspAsContact(r){
+  const secteur = STATE.sectorsList[0] || 'Autre';
+  STATE.contacts.push({ id:uid(), createdAt:Date.now(), nom:r.nom, secteur, adresse:r.adresse, telephone:'', email:'', site:'', statut:'prospecter', dateContact:'', relance:'', notes:`SIREN ${r.siren}${r.activite?' · '+r.activite:''}${r.effectifLabel?' · '+r.effectifLabel:''}` });
+  await saveContacts();
+  showToast('Ajouté aux contacts — complète la fiche si besoin');
+}
+async function addProspAsEntreprise(r){
+  const im = STATE.immeubles.find(x=>x.id===document.getElementById('prospImmeuble').value);
+  if(!im){ showToast("Choisis d'abord un immeuble cible."); return; }
+  if(!im.entreprises) im.entreprises=[];
+  im.entreprises.push({ id:uidE(), nom:r.nom, activite:r.activite, effectif:r.effectifLabel, siren:r.siren, cycleVie:'installe', scoreFlags: effectifAtLeast100(r.trancheCode)?{effectif100:true}:{}, notes:'', historique:[], createdAt:Date.now() });
+  await saveImmeubles();
+  showToast(`Ajoutée à ${im.nom}`);
+}
+
+function renderProspecter(){
+  const app = document.getElementById('app');
+  app.innerHTML = `
+    <header class="top">
+      <div class="brand">
+        <div class="eyebrow">Acquisition de données</div>
+        <h1>Prospecter</h1>
+        <div class="sub">Retrouve une entreprise dans la base officielle, ou importe une liste en une fois.</div>
+      </div>
+    </header>
+    ${modeBar('prospecter')}
+
+    <div class="agent-grid">
+      <div class="agent-card">
+        <h4>${iconSearch()} Recherche officielle (base des entreprises françaises)</h4>
+        <div class="form-row">
+          <input type="text" id="prospQ" placeholder="Nom, enseigne ou activité…">
+          <input type="text" id="prospDept" value="35" placeholder="Département" style="max-width:110px;">
+        </div>
+        <div class="diff-hint" style="margin:6px 0 10px;">Pour ajouter un résultat comme entreprise occupante, choisis d'abord l'immeuble :</div>
+        <select id="prospImmeuble" style="margin-bottom:10px;">
+          <option value="">— Aucun immeuble (ajout en contact uniquement) —</option>
+          ${STATE.immeubles.map(im=>`<option value="${im.id}">${esc(im.nom)} · ${esc(zoneOf(im))}</option>`).join('')}
+        </select>
+        <button class="btn btn-primary btn-sm" id="btnProspSearch">${iconSearch()} Rechercher</button>
+        <div id="prospResults" style="margin-top:12px;display:flex;flex-direction:column;gap:8px;"></div>
+      </div>
+
+      <div class="agent-card">
+        <h4>${iconDownload()} Import en masse (contacts)</h4>
+        <div class="diff-hint" style="margin-top:0;">Colle un tableau (Excel, Sheets, export CSV) avec des colonnes nom / secteur / adresse / téléphone / email / notes, dans n'importe quel ordre — séparateur point-virgule, virgule ou tabulation détecté automatiquement.</div>
+        <textarea id="importCsv" rows="7" placeholder="nom;secteur;adresse;telephone;email;notes"></textarea>
+        <div class="agent-actions">
+          <button class="btn btn-ghost btn-sm" id="btnPreviewImport">Prévisualiser</button>
+          <button class="btn btn-primary btn-sm" id="btnConfirmImport">Importer</button>
+        </div>
+        <div id="importPreview" style="margin-top:10px;"></div>
+      </div>
+    </div>
+
+    <div class="footer-note">Ces deux outils alimentent le carnet de contacts. Bascule ensuite les fiches pertinentes vers un immeuble depuis l'onglet « Immeubles &amp; entreprises ».</div>
+  `;
+  bindModeTabs();
+  document.getElementById('btnProspSearch').onclick = runProspSearch;
+  document.getElementById('prospQ').addEventListener('keydown', (e)=>{ if(e.key==='Enter') runProspSearch(); });
+  document.getElementById('btnPreviewImport').onclick = ()=> previewImport(document.getElementById('importCsv').value);
+  document.getElementById('btnConfirmImport').onclick = ()=> importContactsCSV(document.getElementById('importCsv').value);
 }
 
 function iconBot(){ return `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="10" rx="2"/><circle cx="12" cy="5" r="2"/><path d="M12 7v4"/><circle cx="8" cy="16" r="0.5"/><circle cx="16" cy="16" r="0.5"/></svg>`; }
@@ -2866,6 +3186,7 @@ function syncBadge(){
 }
 
 (async function init(){
+  userBadge();
   await loadState();
   render();
   syncBadge();
