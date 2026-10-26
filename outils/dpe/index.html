@@ -3,48 +3,81 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Explorateur DPE – Agence des Lices</title>
+<title>Explorateur DPE des Lices</title>
+<meta name="claude:viewport-fit-sides" content="cover">
 <meta name="robots" content="noindex">
 <link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500;600;700&display=swap">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="">
 <link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" integrity="sha384-wgw+aLYNQ7dlhK47ZPK7FRACiq7ROZwgFNg0m04avm4CaXS+Z9Y7nMu8yNjBKYC+" crossorigin="">
 <style>
   :root {
+    /* Identité Agence des Lices : vert profond, or, crème ; titres Cormorant Garamond, texte Jost. Mise en page : filtres > tableau de bord > clients > carte + liste. */
     --green-900: #13271c; --green-800: #1b3527; --green-700: #264634; --green-100: #e6ece7;
     --gold: #a8844f; --cream: #f7f3ec; --cream-dark: #ede6d9; --ink: #1d231f; --muted: #5d665f;
-    --white: #fff; --line: rgba(27, 53, 39, .16); --danger: #b3261e; --warn-bg: #fff4d6;
+    --surface: #ffffff; --on-accent: #ffffff; --accent-ink: #1b3527; --line: rgba(27, 53, 39, .16);
+    --danger: #b3261e; --warn-bg: #fff4d6; --err-bg: #fde8e6; --ok: #2e9e5b; --ko: #d0453c;
+    --head-bg: #1b3527; --head-ink: #f7f3ec; --head-sub: #c9b48f; --head-muted: #d8dfd9;
+    --th-hover: #d7e1d9; --row-hover: #f4f7f4; --sel-bg: #fbf1dc; --map-bg: #e9ece6;
+    --dup-bg: #e8e1f5; --dup-fg: #4b2f86; --new-bg: #dff3e6; --new-fg: #11602f; --pass-bg: #ffe6d6; --pass-fg: #8a3a06;
+    --vierge-bg: #eceff1; --vierge-fg: #455a64; --cli-fg: #7a5a22; --backdrop: rgba(19, 39, 28, .45); --shadow: rgba(0, 0, 0, .35);
+    --serif: "Cormorant Garamond", "Times New Roman", serif;
+    --sans: "Jost", "Helvetica Neue", Arial, system-ui, sans-serif;
     --radius: 6px;
   }
+  @media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) { --green-800: #2a5a41; --green-700: #34684c; --green-100: #1e2c24; --gold: #c9a56d; --cream: #121815; --cream-dark: #26302a;
+    --ink: #e6ebe7; --muted: #a2ada5; --surface: #1a221d; --accent-ink: #a9d2b6; --line: rgba(214, 228, 218, .14);
+    --danger: #ff8a80; --warn-bg: #3a3119; --err-bg: #3b1f1d; --ok: #5ccf86; --ko: #ff6b61;
+    --head-bg: #0e1a13; --th-hover: #26382d; --row-hover: #212b25; --sel-bg: #3a3020; --map-bg: #26302a;
+    --dup-bg: #2f2846; --dup-fg: #cdbdf5; --new-bg: #1d3a28; --new-fg: #9de3b5; --pass-bg: #43291a; --pass-fg: #ffbe94;
+    --vierge-bg: #2a3135; --vierge-fg: #b8c5cc; --cli-fg: #e7c891; --backdrop: rgba(0, 0, 0, .6); --shadow: rgba(0, 0, 0, .7);
+    color-scheme: dark; } }
+  :root[data-theme="dark"] { --green-800: #2a5a41; --green-700: #34684c; --green-100: #1e2c24; --gold: #c9a56d; --cream: #121815; --cream-dark: #26302a;
+    --ink: #e6ebe7; --muted: #a2ada5; --surface: #1a221d; --accent-ink: #a9d2b6; --line: rgba(214, 228, 218, .14);
+    --danger: #ff8a80; --warn-bg: #3a3119; --err-bg: #3b1f1d; --ok: #5ccf86; --ko: #ff6b61;
+    --head-bg: #0e1a13; --th-hover: #26382d; --row-hover: #212b25; --sel-bg: #3a3020; --map-bg: #26302a;
+    --dup-bg: #2f2846; --dup-fg: #cdbdf5; --new-bg: #1d3a28; --new-fg: #9de3b5; --pass-bg: #43291a; --pass-fg: #ffbe94;
+    --vierge-bg: #2a3135; --vierge-fg: #b8c5cc; --cli-fg: #e7c891; --backdrop: rgba(0, 0, 0, .6); --shadow: rgba(0, 0, 0, .7);
+    color-scheme: dark; }
   * { box-sizing: border-box; }
   html, body { margin: 0; }
-  body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--cream); overflow-x: hidden; }
-  a { color: var(--green-700); }
+  body { font: 15px/1.45 var(--sans); color: var(--ink); background: var(--cream); overflow-x: hidden; }
+  a { color: var(--accent-ink); }
   button, input, select { font: inherit; }
 
-  header.top { background: var(--green-800); color: var(--cream); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
-  header.top h1 { font-size: 1.2rem; margin: 0; font-weight: 600; letter-spacing: .01em; }
-  header.top h1 small { font-weight: 400; color: #c9b48f; font-size: .85rem; margin-left: 6px; }
-  .status { font-size: .82rem; color: #d8dfd9; display: flex; flex-wrap: wrap; gap: 4px 14px; }
-  .status b { color: var(--white); font-weight: 600; }
-  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #999; margin-right: 5px; vertical-align: 1px; }
-  .dot.ok { background: #57c27a; } .dot.ko { background: #e5534b; } .dot.wait { background: #e3b341; }
+  header.top { background: var(--head-bg); color: var(--head-ink); padding-block: 12px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
+  header.top h1 { font-family: var(--serif); font-size: 1.6rem; margin: 0; font-weight: 600; letter-spacing: .01em; line-height: 1.1; }
+  header.top h1 small { font-family: var(--sans); }
+  header.top h1 small { font-weight: 400; color: var(--head-sub); font-size: .85rem; margin-left: 6px; }
+  .status { font-size: .82rem; color: var(--head-muted); display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .status b { color: var(--head-ink); font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: var(--muted); margin-right: 5px; vertical-align: 1px; }
+  .dot.ok { background: var(--ok); } .dot.ko { background: var(--ko); } .dot.wait { background: var(--gold); }
 
-  main { max-width: 1600px; margin: 0 auto; padding: 12px 16px 32px; }
-  .card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
+  main { max-width: 1600px; margin: 0 auto; padding-block: 12px 32px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+  a:focus-visible, button:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; }
+  @media (prefers-reduced-motion: reduce) { * { transition: none !important; scroll-behavior: auto !important; } }
+  .leaflet-container { background: var(--map-bg); font-family: var(--sans); }
+  .leaflet-popup-content-wrapper, .leaflet-popup-tip { background: var(--surface); color: var(--ink); }
+  .leaflet-container a.leaflet-popup-close-button { color: var(--muted); }
+  #clients .pane-head h2, .chart h2 { font-family: var(--sans); }
+  #demoBanner { display: none; } #demoBanner.show { display: flex; }
+  .card { background: var(--surface); border: 1px solid var(--line); border-radius: var(--radius); }
 
   /* Filtres */
   form#filtres { padding: 12px 14px; display: grid; gap: 12px 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
   fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
   legend, .lbl { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; padding: 0; display: block; }
   .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
-  input[type=date], input[type=number], input[type=text], select { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; background: var(--white); min-width: 0; color: var(--ink); }
+  input[type=date], input[type=number], input[type=text], select { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; background: var(--surface); min-width: 0; color: var(--ink); }
   input[type=date] { flex: 1 1 130px; }
   input[type=number] { width: 92px; }
   select { width: 100%; }
   .chip { border: 1px solid var(--line); background: var(--cream); border-radius: 999px; padding: 3px 10px; font-size: .82rem; cursor: pointer; color: var(--ink); }
-  .chip:hover { border-color: var(--green-700); }
-  .chip.active { background: var(--green-800); color: var(--white); border-color: var(--green-800); }
+  .chip:hover { border-color: var(--accent-ink); }
+  .chip.active { background: var(--green-800); color: var(--on-accent); border-color: var(--green-800); }
   label.check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
   .etq-check { display: inline-flex; align-items: center; cursor: pointer; }
   .etq-check input { position: absolute; opacity: 0; pointer-events: none; }
@@ -58,20 +91,20 @@
   #secteurList label { font-size: .85rem; }
   #secteurList .n { color: var(--muted); font-size: .75rem; }
   .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
-  .btn { border: 1px solid var(--green-800); background: var(--white); color: var(--green-800); border-radius: 4px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
-  .btn.primary { background: var(--green-800); color: var(--white); }
+  .btn { border: 1px solid var(--accent-ink); background: var(--surface); color: var(--accent-ink); border-radius: 4px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .btn.primary { background: var(--green-800); color: var(--on-accent); }
   .btn.primary:hover { background: var(--green-700); }
   .btn:disabled { opacity: .45; cursor: not-allowed; }
   .btn.small { padding: 5px 10px; font-size: .85rem; }
-  #compteur { font-size: 1.15rem; font-weight: 700; color: var(--green-800); }
+  #compteur { font-size: 1.15rem; font-weight: 700; color: var(--accent-ink); }
   #compteur small { font-weight: 400; color: var(--muted); font-size: .8rem; }
   .spacer { flex: 1; }
 
   /* Messages & progression */
   #messages { margin: 10px 0 0; display: grid; gap: 6px; }
   .msg { padding: 8px 12px; border-radius: 4px; font-size: .9rem; border-left: 4px solid var(--gold); background: var(--warn-bg); overflow-wrap: anywhere; }
-  .msg.err { border-color: var(--danger); background: #fde8e6; }
-  .msg.info { border-color: var(--green-700); background: var(--green-100); }
+  .msg.err { border-color: var(--danger); background: var(--err-bg); }
+  .msg.info { border-color: var(--accent-ink); background: var(--green-100); }
   .progress { margin-top: 10px; display: none; }
   .progress.show { display: block; }
   .bar { height: 8px; background: var(--cream-dark); border-radius: 4px; overflow: hidden; }
@@ -92,27 +125,27 @@
   @media (max-width: 1099px) { .table-wrap { max-height: 75vh; } }
   table { border-collapse: collapse; width: 100%; font-size: .84rem; }
   th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
-  th { position: sticky; top: 0; background: var(--green-100); z-index: 1; cursor: pointer; white-space: nowrap; user-select: none; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--green-900); }
-  th[data-sort]:hover { background: #d7e1d9; }
+  th { position: sticky; top: 0; background: var(--green-100); z-index: 1; cursor: pointer; white-space: nowrap; user-select: none; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--accent-ink); }
+  th[data-sort]:hover { background: var(--th-hover); }
   th .arr { opacity: .6; font-size: .7rem; }
   td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
   td.nowrap { white-space: nowrap; }
   td.addr { min-width: 180px; max-width: 280px; }
   td.addr .cpl { color: var(--muted); font-size: .76rem; display: block; }
   tbody tr { cursor: pointer; }
-  tbody tr:hover { background: #f4f7f4; }
-  tbody tr.sel { background: #fbf1dc; outline: 2px solid var(--gold); outline-offset: -2px; }
+  tbody tr:hover { background: var(--row-hover); }
+  tbody tr.sel { background: var(--sel-bg); outline: 2px solid var(--gold); outline-offset: -2px; }
   .scroll-hint { display: none; font-size: .75rem; color: var(--muted); padding: 4px 12px; border-bottom: 1px solid var(--line); }
   @media (max-width: 900px) { .scroll-hint { display: block; } }
   .empty { padding: 30px 16px; text-align: center; color: var(--muted); }
 
   .etq { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 4px; border-radius: 3px; font-weight: 700; font-size: .8rem; }
   .flag { display: inline-block; font-size: .72rem; line-height: 1; padding: 3px 5px; border-radius: 3px; margin: 1px 2px 1px 0; white-space: nowrap; cursor: help; }
-  .flag.dup { background: #e8e1f5; color: #4b2f86; }
-  .flag.ab { background: #fde8e6; color: var(--danger); }
-  .flag.new { background: #dff3e6; color: #11602f; }
-  .flag.pass { background: #ffe6d6; color: #8a3a06; }
-  .flag.vierge { background: #eceff1; color: #455a64; }
+  .flag.dup { background: var(--dup-bg); color: var(--dup-fg); }
+  .flag.ab { background: var(--err-bg); color: var(--danger); }
+  .flag.new { background: var(--new-bg); color: var(--new-fg); }
+  .flag.pass { background: var(--pass-bg); color: var(--pass-fg); }
+  .flag.vierge { background: var(--vierge-bg); color: var(--vierge-fg); }
 
   /* Popup */
   .leaflet-popup-content { margin: 12px 14px; min-width: 220px; font-size: .85rem; line-height: 1.4; }
@@ -121,15 +154,15 @@
   .pp dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 8px; }
   .pp dt { color: var(--muted); } .pp dd { margin: 0; font-weight: 600; }
   .pp .btns { display: flex; gap: 6px; flex-wrap: wrap; }
-  .pp .btns a { text-decoration: none; font-size: .8rem; padding: 5px 9px; border-radius: 4px; border: 1px solid var(--green-800); color: var(--green-800); }
-  .pp .btns a.primary { background: var(--green-800); color: #fff; }
+  .pp .btns a { text-decoration: none; font-size: .8rem; padding: 5px 9px; border-radius: 4px; border: 1px solid var(--accent-ink); color: var(--accent-ink); }
+  .pp .btns a.primary { background: var(--green-800); color: var(--on-accent); border-color: var(--green-800); }
 
   /* Tableau de bord */
   #dashboard { margin-top: 12px; display: grid; gap: 12px; }
   .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
   @media (max-width: 480px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi .v { font-size: 1.35rem; } }
   .kpi { padding: 12px 14px; position: relative; overflow: hidden; }
-  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--green-800); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--accent-ink); line-height: 1.1; font-variant-numeric: tabular-nums; }
   .kpi .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
   .kpi .s { font-size: .78rem; color: var(--muted); margin-top: 2px; }
   .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--green-700)); }
@@ -149,23 +182,23 @@
   #clients .pane-head h2 { font-size: 1rem; margin: 0; }
   #clientGrid { display: grid; gap: 10px; padding: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
   .client { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--cream); display: flex; flex-direction: column; gap: 6px; }
-  .client.active { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; background: #fbf1dc; }
+  .client.active { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; background: var(--sel-bg); }
   .client h3 { margin: 0; font-size: .95rem; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
   .client .proj { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--gold); font-weight: 700; }
   .client .crit { display: flex; flex-wrap: wrap; gap: 4px; }
-  .client .crit span { font-size: .74rem; background: var(--white); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+  .client .crit span { font-size: .74rem; background: var(--surface); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
   .client .notes { font-size: .8rem; color: var(--muted); }
-  .client .match { font-size: .9rem; } .client .match b { font-size: 1.15rem; color: var(--green-800); }
+  .client .match { font-size: .9rem; } .client .match b { font-size: 1.15rem; color: var(--accent-ink); }
   .client .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
   .client .btns button { font-size: .78rem; padding: 4px 8px; }
   .client-empty { grid-column: 1 / -1; color: var(--muted); font-size: .9rem; padding: 6px 2px; }
-  #clientBanner { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #fbf1dc; border: 1px solid var(--gold); border-radius: var(--radius); margin-top: 12px; font-size: .9rem; flex-wrap: wrap; }
+  #clientBanner { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: var(--sel-bg); border: 1px solid var(--gold); border-radius: var(--radius); margin-top: 12px; font-size: .9rem; flex-wrap: wrap; }
   #clientBanner.show { display: flex; }
-  .flag.cli { background: #fbf1dc; color: #7a5a22; }
-  dialog { border: 0; border-radius: 10px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); box-shadow: 0 20px 50px -10px rgba(0,0,0,.35); color: var(--ink); }
-  dialog::backdrop { background: rgba(19, 39, 28, .45); }
+  .flag.cli { background: var(--sel-bg); color: var(--cli-fg); }
+  dialog { border: 0; border-radius: 10px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); box-shadow: 0 20px 50px -10px var(--shadow); color: var(--ink); background: var(--surface); }
+  dialog::backdrop { background: var(--backdrop); }
   dialog form { padding: 18px; display: grid; gap: 12px; }
-  dialog h2 { margin: 0; font-size: 1.1rem; color: var(--green-800); }
+  dialog h2 { margin: 0; font-size: 1.1rem; color: var(--accent-ink); }
   dialog .grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
   @media (max-width: 480px) { dialog .grid2 { grid-template-columns: 1fr; } }
   dialog input[type=text], dialog input[type=number], dialog textarea, dialog select { width: 100%; }
@@ -186,6 +219,10 @@
 </header>
 
 <main>
+  <div class="msg" id="demoBanner" style="margin-bottom:12px;align-items:center;gap:8px 14px;flex-wrap:wrap">
+    <span><b>Mode démonstration.</b> Les DPE affichés sont fictifs, générés dans la page pour essayer l'outil. Les vrais DPE de l'ADEME s'affichent dans la version locale reliée à l'API.</span>
+    <a href="./" id="demoExit" class="btn small">Revenir aux vraies données</a>
+  </div>
   <section class="card">
     <form id="filtres" autocomplete="off">
       <fieldset>
@@ -405,6 +442,9 @@ const FAMILLES = [
   ['Entrepôts, industrie, artisanat', /entrepot|logisti|industri|atelier|stockage|artisan|garage/]
 ];
 
+const IS_ARTIFACT = !!window.DPE_ARTIFACT;   // aperçu en ligne : pas d'accès réseau ni de téléchargement
+const DEMO_START = IS_ARTIFACT || location.hash === '#demo' || new URLSearchParams(location.search).has('demo');
+
 /* ---------- État ---------- */
 const state = {
   mode: null,              // 'direct' | 'proxy'
@@ -461,6 +501,11 @@ function setSlow(on) {
 function proxied(url) { return state.mode === 'proxy' ? '/proxy?url=' + encodeURIComponent(url) : url; }
 
 async function fetchJSON(url, { signal, timeout = 45000, mode } = {}) {
+  if ((mode || state.mode) === 'demo') {
+    await new Promise(r => setTimeout(r, 120 + Math.random() * 200));
+    if (signal && signal.aborted) throw new ApiError('abort');
+    return demoApi(url);
+  }
   const target = (mode || state.mode) === 'proxy' ? '/proxy?url=' + encodeURIComponent(url) : url;
   const ctrl = new AbortController();
   let reason = null;
@@ -503,12 +548,132 @@ async function fetchRetry(url, opts = {}) {
 
 function explain(e) {
   if (e.kind === 'abort') return 'Recherche arrêtée.';
+  if (state.mode === 'demo') return String(e.message || e);
   if (e.kind === 'timeout') return "L'API ADEME ne répond pas (délai dépassé après 3 tentatives). Réessayez dans quelques minutes ou réduisez la période / la zone.";
   if (e.kind === 'network') return state.mode === 'proxy'
     ? "Le proxy local ne parvient pas à joindre l'API ADEME (connexion Internet ? pare-feu ?)."
     : "Impossible de joindre l'API ADEME depuis le navigateur. Lancez le petit serveur local : python3 serveur_dpe.py (voir README), puis ouvrez http://localhost:8765.";
   if (e.kind === 'http') return `L'API ADEME a renvoyé une erreur ${e.status}. ${e.detail ? 'Détail : ' + e.detail : ''}`;
   return String(e.message || e);
+}
+
+/* ---------- Mode démo : DPE fictifs + API simulée ---------- */
+const DEMO_COMMUNES = [
+  { nom: 'Rennes', code: '35238', lat: 48.1114, lon: -1.6797, sd: [0.016, 0.026], poids: 0.8,
+    rues: ['Rue de Saint-Malo', "Rue d'Antrain", 'Boulevard de la Liberté', 'Rue de Fougères', 'Avenue Janvier', 'Rue Saint-Hélier', 'Boulevard de Sévigné', 'Rue de Nantes', 'Rue de Brest', 'Rue de Paris', 'Rue de Châteaugiron', 'Boulevard Voltaire', 'Rue de Lorient', 'Mail François Mitterrand', 'Rue Alphonse Guérin', 'Rue de Redon', 'Quai Lamartine', 'Rue Jean Guéhenno', 'Rue de la Palestine', 'Rue Poullain Duparc'] },
+  { nom: 'Cesson-Sévigné', cp: '35510', code: '35051', lat: 48.1210, lon: -1.6030, sd: [0.008, 0.012], poids: 0.06, rues: ['Rue de Rennes', 'Rue du Bourg', 'Allée des Chênes', 'Rue de la Rigourdière'] },
+  { nom: 'Bruz', cp: '35170', code: '35047', lat: 48.0246, lon: -1.7459, sd: [0.008, 0.012], poids: 0.05, rues: ['Rue de la Mairie', 'Avenue Alphonse Legault', 'Rue du Stade'] },
+  { nom: 'Saint-Grégoire', cp: '35760', code: '35278', lat: 48.1513, lon: -1.6857, sd: [0.007, 0.010], poids: 0.05, rues: ['Rue de Rennes', 'Rue des Landelles', 'Allée du Canal'] },
+  { nom: 'Chantepie', cp: '35135', code: '35055', lat: 48.0886, lon: -1.6157, sd: [0.006, 0.009], poids: 0.04, rues: ['Rue de Rennes', 'Rue des Loges', 'Allée des Peupliers'] }
+];
+const DEMO_CLIENTS = [
+  { id: 'demo-c1', nom: 'M. et Mme Martin (exemple)', contact: '06 00 00 00 01', projet: 'achat', budget: '420 000 €', types: ['maison'], zone: 'rennes', insee: '', smin: 90, smax: 160, etiquettes: ['A', 'B', 'C', 'D'], notes: 'Jardin, 3 chambres, proche école' },
+  { id: 'demo-c2', nom: 'SCI Investisseur (exemple)', contact: '', projet: 'investissement', budget: '200 000 €', types: ['appartement'], zone: 'centre', insee: '', smin: null, smax: 60, etiquettes: ['E', 'F', 'G'], notes: 'Studios / T2 à rénover pour location' },
+  { id: 'demo-c3', nom: 'Cabinet infirmier (exemple)', contact: '', projet: 'location', budget: '', types: ['tertiaire'], zone: 'toutes', insee: '', smin: 40, smax: 150, etiquettes: [], notes: 'Local en rez-de-chaussée' }
+];
+let DEMO_DB = null;
+function demoDb() {
+  if (DEMO_DB) return DEMO_DB;
+  let seed = 20261026;
+  const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const pick = arr => arr[Math.floor(rnd() * arr.length)];
+  const wpick = (items, w) => { let x = rnd() * w.reduce((a, b) => a + b, 0); for (let i = 0; i < items.length; i++) { x -= w[i]; if (x <= 0) return items[i]; } return items[items.length - 1]; };
+  const gauss = () => (rnd() + rnd() + rnd() + rnd() - 2) / 0.58;
+  const between = (a, b) => a + rnd() * (b - a);
+  const CONSO = { A: [40, 70], B: [70, 110], C: [110, 180], D: [180, 250], E: [250, 330], F: [330, 420], G: [420, 620] };
+  const GES = { A: [1, 6], B: [6, 11], C: [11, 30], D: [30, 50], E: [50, 70], F: [70, 100], G: [100, 140] };
+  const PERIODES = ['avant 1948', '1948-1974', '1975-1977', '1978-1982', '1983-1988', '1989-2000', '2001-2005', '2006-2012', '2013-2021', 'après 2021'];
+  const CHAUFF = ['Électricité', 'Gaz naturel', 'Réseau de Chauffage urbain', 'Fioul domestique', 'Bois – Granulés (pellets) ou briquettes', 'GPL'];
+  const SECTEURS = ['Bureaux', 'Commerce de détail', 'Restaurant', 'Hôtel', 'Cabinet médical', 'Établissement d\'enseignement', 'Entrepôt', 'Salle de sport', 'Supérette alimentaire', 'Agence bancaire'];
+  const near = (l, spread) => LETTERS[Math.max(0, Math.min(6, LETTERS.indexOf(l) + Math.round(gauss() * spread)))];
+  const today = new Date(); today.setHours(12, 0, 0, 0);
+  const dateIso = () => iso(new Date(today.getTime() - (3 + Math.floor(rnd() * 362)) * 86400000));
+  const place = () => {
+    const c = wpick(DEMO_COMMUNES, DEMO_COMMUNES.map(x => x.poids));
+    const lat = c.lat + gauss() * c.sd[0], lon = c.lon + gauss() * c.sd[1];
+    const cp = c.code === '35238' ? pick(['35000', '35200', '35700']) : c.cp;
+    return { c, lat, lon, cp, rue: `${1 + Math.floor(rnd() * 120)} ${pick(c.rues)}` };
+  };
+  const logs = [], ters = [];
+  let n = 0;
+  for (let i = 0; i < 2600; i++) {
+    const type = wpick(['appartement', 'maison', 'immeuble'], [62, 33, 5]);
+    const et = wpick(LETTERS, [3, 7, 26, 30, 18, 9, 7]);
+    const surf = type === 'appartement' ? Math.round(between(18, 50) + rnd() * rnd() * 70) : type === 'maison' ? Math.round(between(70, 120) + rnd() * 90) : Math.round(between(250, 1200));
+    const conso = Math.round(between(...CONSO[et]));
+    const etG = near(et, 1.1);
+    const pl = place();
+    const r = {
+      numero_dpe: 'DEMO' + String(2600000000 + (n++) * 7919).slice(0, 10), date_etablissement_dpe: dateIso(), type_batiment: type,
+      adresse_ban: `${pl.rue} ${pl.cp} ${pl.c.nom}`, code_postal_ban: pl.cp, nom_commune_ban: pl.c.nom, code_insee_ban: pl.c.code,
+      complement_adresse_logement: type === 'appartement' && rnd() < .7 ? `Bât. ${pick(['A', 'B', 'C'])}, ${pick(['RDC', '1er étage', '2e étage', '3e étage', '4e étage'])}` : '',
+      surface_habitable_logement: surf, periode_construction: et === 'G' || et === 'F' ? pick(PERIODES.slice(0, 4)) : pick(PERIODES),
+      type_energie_principale_chauffage: pick(CHAUFF), etiquette_dpe: et, conso_5_usages_par_m2_ep: conso,
+      etiquette_ges: etG, emission_ges_5_usages_par_m2: +between(...GES[etG]).toFixed(1),
+      cout_total_5_usages: Math.round(surf * conso * between(0.07, 0.1)), _geopoint: `${pl.lat.toFixed(6)},${pl.lon.toFixed(6)}`
+    };
+    logs.push(r);
+    if (rnd() < 0.02) logs.push({ ...r, numero_dpe: 'DEMO' + String(2700000000 + i * 31).slice(0, 10) });   // doublon
+  }
+  logs[17].cout_total_5_usages = 74500; logs[17].surface_habitable_logement = 86;                          // valeur aberrante
+  for (let i = 0; i < 240; i++) {
+    const vierge = rnd() < 0.08;
+    const et = wpick(LETTERS, [4, 9, 22, 28, 20, 10, 7]);
+    const etG = near(et, 1.2);
+    const pl = place();
+    const surf = Math.round(between(40, 300) + rnd() * rnd() * 1500);
+    ters.push({
+      numero_dpe: 'DEMOT' + String(2600000000 + i * 104729).slice(0, 9), date_etablissement_dpe: dateIso(),
+      adresse_ban: `${pl.rue} ${pl.cp} ${pl.c.nom}`, code_postal_ban: pl.cp, nom_commune_ban: pl.c.nom, code_insee_ban: pl.c.code,
+      surface_utile: surf, periode_construction: pick(PERIODES), type_energie_principale_chauffage: pick(CHAUFF),
+      etiquette_dpe: vierge ? null : et, conso_kwhep_m2_an: vierge ? null : Math.round(between(...CONSO[et])),
+      etiquette_ges: vierge ? null : etG, emission_ges_kg_co2_m2_an: vierge ? null : +between(...GES[etG]).toFixed(1),
+      frais_annuel_energie_n1: vierge ? null : Math.round(surf * between(8, 30)), secteur_activite: pick(SECTEURS),
+      methode_dpe: vierge ? 'DPE vierge' : pick(['Factures', 'Calcul 3CL']), _geopoint: `${pl.lat.toFixed(6)},${pl.lon.toFixed(6)}`
+    });
+  }
+  const bySort = (a, b) => a.date_etablissement_dpe < b.date_etablissement_dpe ? 1 : -1;
+  DEMO_DB = { logement: logs.sort(bySort), tertiaire: ters.sort(bySort) };
+  return DEMO_DB;
+}
+
+function demoApi(url) {
+  if (url.startsWith(GEO_EPCI_RENNES.split('?')[0])) return DEMO_COMMUNES.map(c => ({ nom: c.nom + ' (démo)', code: c.code }));
+  const u = new URL(url);
+  const m = u.pathname.match(/datasets\/([^/]+)(?:\/(lines|values_agg))?$/);
+  const dsKey = m && m[1] === DATASETS.tertiaire.id ? 'tertiaire' : 'logement';
+  const rows0 = demoDb()[dsKey];
+  if (!m || !m[2]) return { id: m ? m[1] : '', count: rows0.length, schema: Object.keys(rows0[0]).map(key => ({ key })) };
+  const p = u.searchParams;
+  if (m[2] === 'values_agg') {
+    const f = p.get('field'), agg = new Map();
+    for (const r of rows0) if (r[f]) agg.set(r[f], (agg.get(r[f]) || 0) + 1);
+    return { aggs: [...agg].map(([value, total]) => ({ value, total })) };
+  }
+  let rows = rows0;
+  for (const [k, v] of p) {
+    const mm = k.match(/^(.+)_(eq|in|gte|lte)$/);
+    if (mm) {
+      const [, f, op] = mm, vals = v.split(',');
+      rows = rows.filter(r => {
+        const x = r[f];
+        if (op === 'eq') return String(x) === v;
+        if (op === 'in') return vals.includes(String(x));
+        if (x == null) return false;
+        const numeric = !isNaN(+v) && typeof x === 'number';
+        const a = numeric ? x : String(x), b = numeric ? +v : v;
+        return op === 'gte' ? a >= b : a <= b;
+      });
+    } else if (k === 'geo_distance') {
+      const [lon, lat, d] = v.split(',').map(Number);
+      rows = rows.filter(r => { const [a, b] = r._geopoint.split(',').map(Number); return distanceM(a, b, lat, lon) <= d; });
+    }
+  }
+  const size = Math.min(+p.get('size') || 12, PAGE_SIZE), page = +p.get('demo_page') || 0;
+  const results = rows.slice(page * size, page * size + size);
+  let next;
+  if ((page + 1) * size < rows.length) { const n = new URL(url); n.searchParams.set('demo_page', page + 1); next = n.toString(); }
+  return { total: rows.length, next, results };
 }
 
 /* ---------- Démarrage : connexion + vérification des champs ---------- */
@@ -545,15 +710,38 @@ async function init() {
   buildEtiquetteFilter();
   buildHead();
   initMap();
+  if (DEMO_START) return startDemo();
   let metaLog;
   try { metaLog = await detectMode(); }
   catch (e) {
     $('#stConn').innerHTML = '<span class="dot ko"></span>API ADEME injoignable';
-    message(explain(e), 'err');
+    const m = message(explain(e) + ' ', 'err');
+    const b = document.createElement('button');
+    b.type = 'button'; b.className = 'btn small'; b.textContent = 'Essayer avec des données d\'exemple';
+    b.addEventListener('click', () => { clearMessages(); startDemo(); });
+    m.appendChild(b);
     return;
   }
   $('#stConn').innerHTML = `<span class="dot ok"></span>API ADEME : <b>${state.mode === 'proxy' ? 'via le proxy local' : 'connexion directe'}</b>`;
+  await afterConnect(metaLog);
+}
 
+async function startDemo() {
+  state.mode = 'demo';
+  $('#demoBanner').classList.add('show');
+  $('#demoExit').hidden = IS_ARTIFACT;
+  $('#stConn').innerHTML = '<span class="dot wait"></span>Mode démo : <b>données fictives</b>';
+  if (!state.clients.length) {
+    state.clients = DEMO_CLIENTS.map(c => ({ ...c }));
+    renderClients();
+  }
+  await afterConnect(demoApi(API + DATASETS.logement.id));
+  $('#cbTertiaire').checked = true;
+  $('#secteurBox').classList.add('show');
+  search();
+}
+
+async function afterConnect(metaLog) {
   const lines = [];
   const handle = (dsKey, meta) => {
     const { out, missing, blocking } = resolveFields(dsKey, meta);
@@ -640,7 +828,7 @@ async function loadMetropole() {
   if (state.metropole) return state.metropole;
   $('#zoneHint').textContent = 'Chargement de la liste des communes (geo.api.gouv.fr)…';
   let list;
-  try { list = await fetchJSON(GEO_EPCI_RENNES, { mode: 'direct', timeout: 20000 }); }
+  try { list = await fetchJSON(GEO_EPCI_RENNES, { mode: state.mode === 'demo' ? 'demo' : 'direct', timeout: 20000 }); }
   catch (e) {
     if (state.mode === 'proxy') list = await fetchRetry(GEO_EPCI_RENNES).catch(() => null);
   }
@@ -867,8 +1055,9 @@ function applyView(fit = false) {
 let map, cluster;
 function initMap() {
   if (!window.L) { message('La bibliothèque de carte (Leaflet) n\'a pas pu être chargée : vérifiez la connexion Internet.', 'err'); return; }
-  map = L.map('map', { preferCanvas: true }).setView([CENTRE.lat, CENTRE.lon], 12);
-  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  map = L.map('map', { preferCanvas: true, maxZoom: 19 }).setView([CENTRE.lat, CENTRE.lon], 12);
+  if (IS_ARTIFACT) map.attributionControl.addAttribution('Aperçu sans fond de carte · fond OpenStreetMap dans la version locale');
+  else L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
   cluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 18 });
   map.addLayer(cluster);
   map.on('moveend', () => { if ($('#onlyVisible').checked) renderTable(); });
@@ -893,6 +1082,12 @@ function updateMap(fit) {
   const layers = state.view.map(i => state.markers[i]).filter(Boolean);
   cluster.addLayers(layers);
   if (fit && layers.length) map.fitBounds(cluster.getBounds(), { padding: [24, 24], maxZoom: 16 });
+}
+
+const isDemoDpe = r => String(r.numero).startsWith('DEMO');
+function rapportLink(r, label, cls = '') {
+  if (isDemoDpe(r)) return `<span class="hint ${cls}" title="DPE fictif : pas de rapport ADEME">${label} (exemple)</span>`;
+  return `<a ${cls ? `class="${cls}" ` : ''}href="${RAPPORT_URL(r.numero)}" target="_blank" rel="noopener" title="N° ${esc(r.numero)}">${label}</a>`;
 }
 
 function etqBox(l, vierge) {
@@ -931,7 +1126,7 @@ function popupHtml(r) {
     <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${k === 'Énergie' || k === 'Climat (GES)' ? v : esc(v)}</dd>`).join('')}</dl>
     <div class="hint" style="margin-bottom:6px">N° ${esc(r.numero)}</div>
     <div class="btns">
-      <a class="primary" href="${RAPPORT_URL(r.numero)}" target="_blank" rel="noopener">Rapport ADEME</a>
+      ${rapportLink(r, 'Rapport ADEME', 'primary')}
       ${r.lat != null ? `<a href="${GMAPS_URL(r.lat, r.lon)}" target="_blank" rel="noopener">Google Maps</a>` : ''}
     </div></div>`;
 }
@@ -1003,7 +1198,7 @@ function renderTable() {
       <td>${etqBox(r.etiquetteGes)}</td>
       <td class="num">${fmt1(r.ges)}</td>
       <td>${flagsHtml(r)}</td>
-      <td class="nowrap"><a href="${RAPPORT_URL(r.numero)}" target="_blank" rel="noopener" title="N° ${esc(r.numero)}">Rapport ↗</a></td>
+      <td class="nowrap">${rapportLink(r, 'Rapport ↗')}</td>
     </tr>`;
   }).join('');
 }
@@ -1173,6 +1368,7 @@ function openClientDialog(c) {
   f.reset();
   $('#clientDialogTitle').textContent = c ? 'Modifier la recherche client' : 'Nouvelle recherche client';
   $('#btnDeleteClient').hidden = !c;
+  delete $('#btnDeleteClient').dataset.armed; $('#btnDeleteClient').textContent = 'Supprimer';
   const v = c || { nom: '', contact: '', projet: 'achat', budget: '', types: [], zone: 'toutes', insee: '', smin: null, smax: null, etiquettes: [...LETTERS], notes: '' };
   for (const k of ['nom', 'contact', 'projet', 'budget', 'zone', 'insee', 'notes']) f.elements[k].value = v[k] ?? '';
   f.elements.smin.value = v.smin ?? ''; f.elements.smax.value = v.smax ?? '';
@@ -1245,7 +1441,17 @@ function exportCsv() {
   download(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }), fileStem() + '.csv');
 }
 
-function download(blob, name) {
+async function download(blob, name) {
+  if (IS_ARTIFACT) {
+    const dl = window.claude && window.claude.use ? await window.claude.use('downloads').catch(() => null) : null;
+    if (!dl) { message(`Cet aperçu ne peut pas proposer le fichier « ${name} ». Les exports marchent dans la version locale (python3 serveur_dpe.py).`, 'info'); return; }
+    try { await dl.save({ filename: name, data: blob }); }
+    catch (e) {
+      if (e && e.code === 'declined') return;
+      message(e && e.code === 'rate_limited' ? 'Une demande d\'enregistrement est déjà ouverte : répondez-y puis réessayez.' : `Le fichier « ${name} » n'a pas pu être proposé (${(e && e.code) || 'indisponible'}).`, 'info');
+    }
+    return;
+  }
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob); a.download = name;
   document.body.appendChild(a); a.click(); a.remove();
@@ -1302,7 +1508,7 @@ function exportPdf() {
       doc.text('Page ' + doc.internal.getNumberOfPages(), w - 10, h - 6, { align: 'right' });
     }
   });
-  doc.save(fileStem() + '.pdf');
+  if (IS_ARTIFACT) download(doc.output('blob'), fileStem() + '.pdf'); else doc.save(fileStem() + '.pdf');
 }
 
 /* ---------- Événements ---------- */
@@ -1341,7 +1547,9 @@ $('#btnCancelClient').addEventListener('click', () => $('#clientDialog').close()
 $('#clientForm').addEventListener('submit', saveClientFromForm);
 $('#btnDeleteClient').addEventListener('click', () => {
   const c = state.clients.find(x => x.id === state.editing);
-  if (!c || !confirm(`Supprimer la recherche de ${c.nom} ?`)) return;
+  const btn = $('#btnDeleteClient');
+  if (!c) return;
+  if (!btn.dataset.armed) { btn.dataset.armed = '1'; btn.textContent = 'Confirmer la suppression'; return; }
   state.clients = state.clients.filter(x => x.id !== c.id);
   if (state.clientFilter === c.id) state.clientFilter = null;
   saveClients(); $('#clientDialog').close(); refreshClients();

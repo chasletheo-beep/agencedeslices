@@ -13,6 +13,11 @@ Cette commande ouvre http://localhost:8765. Le petit serveur (Python 3, aucune i
 appels vers l'API ADEME si le navigateur les refuse (CORS). La page essaie d'abord l'appel direct, puis bascule
 automatiquement sur le serveur. Si l'API autorise le CORS, on peut aussi ouvrir directement `outils/dpe/index.html`.
 
+## Essayer sans connexion (mode démo)
+
+Ouvrez http://localhost:8765/#demo, ou cliquez « Essayer avec des données d'exemple » quand l'API ne répond pas.
+La page génère alors des DPE **fictifs** et des clients d'exemple, et simule l'API (pagination, filtres, limite).
+
 ## Vérifier l'API
 
 ```
