@@ -1,0 +1,1381 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Explorateur DPE – Agence des Lices</title>
+<meta name="robots" content="noindex">
+<link rel="icon" href="../../assets/img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha384-sHL9NAb7lN7rfvG5lfHpm643Xkcjzp4jFvuavGOndn6pjVqS6ny56CAt3nsEVT4H" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" integrity="sha384-pmjIAcz2bAn0xukfxADbZIb3t8oRT9Sv0rvO+BR5Csr6Dhqq+nZs59P0pPKQJkEV" crossorigin="">
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" integrity="sha384-wgw+aLYNQ7dlhK47ZPK7FRACiq7ROZwgFNg0m04avm4CaXS+Z9Y7nMu8yNjBKYC+" crossorigin="">
+<style>
+  :root {
+    --green-900: #13271c; --green-800: #1b3527; --green-700: #264634; --green-100: #e6ece7;
+    --gold: #a8844f; --cream: #f7f3ec; --cream-dark: #ede6d9; --ink: #1d231f; --muted: #5d665f;
+    --white: #fff; --line: rgba(27, 53, 39, .16); --danger: #b3261e; --warn-bg: #fff4d6;
+    --radius: 6px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; }
+  body { font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif; color: var(--ink); background: var(--cream); overflow-x: hidden; }
+  a { color: var(--green-700); }
+  button, input, select { font: inherit; }
+
+  header.top { background: var(--green-800); color: var(--cream); padding: 12px 16px; display: flex; flex-wrap: wrap; gap: 4px 16px; align-items: baseline; justify-content: space-between; }
+  header.top h1 { font-size: 1.2rem; margin: 0; font-weight: 600; letter-spacing: .01em; }
+  header.top h1 small { font-weight: 400; color: #c9b48f; font-size: .85rem; margin-left: 6px; }
+  .status { font-size: .82rem; color: #d8dfd9; display: flex; flex-wrap: wrap; gap: 4px 14px; }
+  .status b { color: var(--white); font-weight: 600; }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; background: #999; margin-right: 5px; vertical-align: 1px; }
+  .dot.ok { background: #57c27a; } .dot.ko { background: #e5534b; } .dot.wait { background: #e3b341; }
+
+  main { max-width: 1600px; margin: 0 auto; padding: 12px 16px 32px; }
+  .card { background: var(--white); border: 1px solid var(--line); border-radius: var(--radius); }
+
+  /* Filtres */
+  form#filtres { padding: 12px 14px; display: grid; gap: 12px 20px; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); align-items: start; }
+  fieldset { border: 0; padding: 0; margin: 0; min-width: 0; }
+  legend, .lbl { font-size: .74rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin-bottom: 6px; padding: 0; display: block; }
+  .row { display: flex; flex-wrap: wrap; gap: 6px 10px; align-items: center; }
+  input[type=date], input[type=number], input[type=text], select { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; background: var(--white); min-width: 0; color: var(--ink); }
+  input[type=date] { flex: 1 1 130px; }
+  input[type=number] { width: 92px; }
+  select { width: 100%; }
+  .chip { border: 1px solid var(--line); background: var(--cream); border-radius: 999px; padding: 3px 10px; font-size: .82rem; cursor: pointer; color: var(--ink); }
+  .chip:hover { border-color: var(--green-700); }
+  .chip.active { background: var(--green-800); color: var(--white); border-color: var(--green-800); }
+  label.check { display: inline-flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .etq-check { display: inline-flex; align-items: center; cursor: pointer; }
+  .etq-check input { position: absolute; opacity: 0; pointer-events: none; }
+  .etq-check span { display: inline-grid; place-items: center; width: 30px; height: 28px; border-radius: 4px; font-weight: 700; opacity: .28; border: 2px solid transparent; }
+  .etq-check input:checked + span { opacity: 1; }
+  .etq-check input:focus-visible + span { border-color: var(--ink); }
+  .hint { font-size: .8rem; color: var(--muted); }
+  #secteurBox { margin-top: 8px; padding: 8px; background: var(--cream); border-radius: 4px; display: none; }
+  #secteurBox.show { display: block; }
+  #secteurList { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 4px; }
+  #secteurList label { font-size: .85rem; }
+  #secteurList .n { color: var(--muted); font-size: .75rem; }
+  .actions { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px 12px; align-items: center; border-top: 1px solid var(--line); padding-top: 12px; }
+  .btn { border: 1px solid var(--green-800); background: var(--white); color: var(--green-800); border-radius: 4px; padding: 8px 14px; cursor: pointer; font-weight: 600; white-space: nowrap; }
+  .btn.primary { background: var(--green-800); color: var(--white); }
+  .btn.primary:hover { background: var(--green-700); }
+  .btn:disabled { opacity: .45; cursor: not-allowed; }
+  .btn.small { padding: 5px 10px; font-size: .85rem; }
+  #compteur { font-size: 1.15rem; font-weight: 700; color: var(--green-800); }
+  #compteur small { font-weight: 400; color: var(--muted); font-size: .8rem; }
+  .spacer { flex: 1; }
+
+  /* Messages & progression */
+  #messages { margin: 10px 0 0; display: grid; gap: 6px; }
+  .msg { padding: 8px 12px; border-radius: 4px; font-size: .9rem; border-left: 4px solid var(--gold); background: var(--warn-bg); overflow-wrap: anywhere; }
+  .msg.err { border-color: var(--danger); background: #fde8e6; }
+  .msg.info { border-color: var(--green-700); background: var(--green-100); }
+  .progress { margin-top: 10px; display: none; }
+  .progress.show { display: block; }
+  .bar { height: 8px; background: var(--cream-dark); border-radius: 4px; overflow: hidden; }
+  .bar > i { display: block; height: 100%; width: 0; background: var(--gold); transition: width .2s; }
+  .progress .hint { margin-top: 3px; }
+
+  /* Résultats */
+  #resultats { margin-top: 12px; display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 1100px) { #resultats { grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); } }
+  .pane { display: flex; flex-direction: column; min-width: 0; }
+  .pane-head { display: flex; flex-wrap: wrap; gap: 6px 12px; align-items: center; justify-content: space-between; padding: 8px 12px; border-bottom: 1px solid var(--line); font-size: .85rem; }
+  #map { height: 62vh; min-height: 320px; border-radius: 0 0 var(--radius) var(--radius); z-index: 0; }
+  @media (max-width: 700px) { #map { height: 52vh; } }
+  .legend { display: flex; flex-wrap: wrap; gap: 3px; align-items: center; }
+  .legend .k { display: inline-flex; align-items: center; gap: 3px; font-size: .78rem; }
+
+  .table-wrap { overflow: auto; max-height: 62vh; min-height: 200px; -webkit-overflow-scrolling: touch; }
+  @media (max-width: 1099px) { .table-wrap { max-height: 75vh; } }
+  table { border-collapse: collapse; width: 100%; font-size: .84rem; }
+  th, td { padding: 6px 8px; border-bottom: 1px solid var(--line); text-align: left; vertical-align: top; }
+  th { position: sticky; top: 0; background: var(--green-100); z-index: 1; cursor: pointer; white-space: nowrap; user-select: none; font-size: .76rem; text-transform: uppercase; letter-spacing: .03em; color: var(--green-900); }
+  th[data-sort]:hover { background: #d7e1d9; }
+  th .arr { opacity: .6; font-size: .7rem; }
+  td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  td.nowrap { white-space: nowrap; }
+  td.addr { min-width: 180px; max-width: 280px; }
+  td.addr .cpl { color: var(--muted); font-size: .76rem; display: block; }
+  tbody tr { cursor: pointer; }
+  tbody tr:hover { background: #f4f7f4; }
+  tbody tr.sel { background: #fbf1dc; outline: 2px solid var(--gold); outline-offset: -2px; }
+  .scroll-hint { display: none; font-size: .75rem; color: var(--muted); padding: 4px 12px; border-bottom: 1px solid var(--line); }
+  @media (max-width: 900px) { .scroll-hint { display: block; } }
+  .empty { padding: 30px 16px; text-align: center; color: var(--muted); }
+
+  .etq { display: inline-grid; place-items: center; min-width: 24px; height: 22px; padding: 0 4px; border-radius: 3px; font-weight: 700; font-size: .8rem; }
+  .flag { display: inline-block; font-size: .72rem; line-height: 1; padding: 3px 5px; border-radius: 3px; margin: 1px 2px 1px 0; white-space: nowrap; cursor: help; }
+  .flag.dup { background: #e8e1f5; color: #4b2f86; }
+  .flag.ab { background: #fde8e6; color: var(--danger); }
+  .flag.new { background: #dff3e6; color: #11602f; }
+  .flag.pass { background: #ffe6d6; color: #8a3a06; }
+  .flag.vierge { background: #eceff1; color: #455a64; }
+
+  /* Popup */
+  .leaflet-popup-content { margin: 12px 14px; min-width: 220px; font-size: .85rem; line-height: 1.4; }
+  .pp h3 { margin: 0 0 2px; font-size: .95rem; }
+  .pp .sub { color: var(--muted); font-size: .8rem; margin-bottom: 6px; }
+  .pp dl { display: grid; grid-template-columns: auto 1fr; gap: 2px 10px; margin: 6px 0 8px; }
+  .pp dt { color: var(--muted); } .pp dd { margin: 0; font-weight: 600; }
+  .pp .btns { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pp .btns a { text-decoration: none; font-size: .8rem; padding: 5px 9px; border-radius: 4px; border: 1px solid var(--green-800); color: var(--green-800); }
+  .pp .btns a.primary { background: var(--green-800); color: #fff; }
+
+  /* Tableau de bord */
+  #dashboard { margin-top: 12px; display: grid; gap: 12px; }
+  .kpis { display: grid; gap: 12px; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); }
+  @media (max-width: 480px) { .kpis { grid-template-columns: 1fr 1fr; } .kpi .v { font-size: 1.35rem; } }
+  .kpi { padding: 12px 14px; position: relative; overflow: hidden; }
+  .kpi .v { font-size: 1.6rem; font-weight: 700; color: var(--green-800); line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .kpi .l { font-size: .74rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); font-weight: 600; }
+  .kpi .s { font-size: .78rem; color: var(--muted); margin-top: 2px; }
+  .kpi::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--accent, var(--green-700)); }
+  .charts { display: grid; gap: 12px; grid-template-columns: minmax(0, 1fr); }
+  @media (min-width: 900px) { .charts { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+  .chart { padding: 12px 14px; }
+  .chart h2 { font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 0 0 10px; }
+  .distrib { display: flex; height: 34px; border-radius: 4px; overflow: hidden; background: var(--cream-dark); }
+  .distrib > div { display: grid; place-items: center; font-weight: 700; font-size: .8rem; min-width: 0; overflow: hidden; transition: flex-grow .3s; }
+  .distrib-leg { display: flex; flex-wrap: wrap; gap: 4px 12px; margin-top: 8px; font-size: .78rem; color: var(--muted); }
+  #histo svg { width: 100%; height: 130px; display: block; }
+  #histo rect { fill: var(--green-700); } #histo rect.new { fill: var(--gold); }
+  #histo text { font-size: 10px; fill: var(--muted); }
+
+  /* Clients */
+  #clients { margin-top: 12px; }
+  #clients .pane-head h2 { font-size: 1rem; margin: 0; }
+  #clientGrid { display: grid; gap: 10px; padding: 12px; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); }
+  .client { border: 1px solid var(--line); border-radius: var(--radius); padding: 10px 12px; background: var(--cream); display: flex; flex-direction: column; gap: 6px; }
+  .client.active { border-color: var(--gold); box-shadow: 0 0 0 2px var(--gold) inset; background: #fbf1dc; }
+  .client h3 { margin: 0; font-size: .95rem; display: flex; justify-content: space-between; gap: 8px; align-items: baseline; }
+  .client .proj { font-size: .7rem; text-transform: uppercase; letter-spacing: .05em; color: var(--gold); font-weight: 700; }
+  .client .crit { display: flex; flex-wrap: wrap; gap: 4px; }
+  .client .crit span { font-size: .74rem; background: var(--white); border: 1px solid var(--line); border-radius: 999px; padding: 1px 7px; }
+  .client .notes { font-size: .8rem; color: var(--muted); }
+  .client .match { font-size: .9rem; } .client .match b { font-size: 1.15rem; color: var(--green-800); }
+  .client .btns { display: flex; flex-wrap: wrap; gap: 6px; margin-top: auto; }
+  .client .btns button { font-size: .78rem; padding: 4px 8px; }
+  .client-empty { grid-column: 1 / -1; color: var(--muted); font-size: .9rem; padding: 6px 2px; }
+  #clientBanner { display: none; align-items: center; gap: 8px; padding: 8px 12px; background: #fbf1dc; border: 1px solid var(--gold); border-radius: var(--radius); margin-top: 12px; font-size: .9rem; flex-wrap: wrap; }
+  #clientBanner.show { display: flex; }
+  .flag.cli { background: #fbf1dc; color: #7a5a22; }
+  dialog { border: 0; border-radius: 10px; padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); box-shadow: 0 20px 50px -10px rgba(0,0,0,.35); color: var(--ink); }
+  dialog::backdrop { background: rgba(19, 39, 28, .45); }
+  dialog form { padding: 18px; display: grid; gap: 12px; }
+  dialog h2 { margin: 0; font-size: 1.1rem; color: var(--green-800); }
+  dialog .grid2 { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+  @media (max-width: 480px) { dialog .grid2 { grid-template-columns: 1fr; } }
+  dialog input[type=text], dialog input[type=number], dialog textarea, dialog select { width: 100%; }
+  dialog textarea { border: 1px solid var(--line); border-radius: 4px; padding: 6px 8px; font: inherit; min-height: 60px; resize: vertical; }
+  dialog .foot { display: flex; justify-content: flex-end; gap: 8px; flex-wrap: wrap; }
+  details.champs { margin-top: 10px; font-size: .8rem; color: var(--muted); }
+  details.champs code { font-size: .78rem; }
+  footer.src { margin-top: 14px; font-size: .78rem; color: var(--muted); }
+</style>
+</head>
+<body>
+<header class="top">
+  <h1>Explorateur DPE <small>Agence des Lices · données ADEME</small></h1>
+  <div class="status">
+    <span id="stConn"><span class="dot wait"></span>Connexion à l'API ADEME…</span>
+    <span id="stLast"></span>
+  </div>
+</header>
+
+<main>
+  <section class="card">
+    <form id="filtres" autocomplete="off">
+      <fieldset>
+        <legend>Période (date d'établissement du DPE)</legend>
+        <div class="row">
+          <input type="date" id="du" aria-label="Du" required>
+          <span class="hint">au</span>
+          <input type="date" id="au" aria-label="Au" required>
+        </div>
+        <div class="row" style="margin-top:6px" id="raccourcis">
+          <button type="button" class="chip" data-days="7">7 derniers jours</button>
+          <button type="button" class="chip" data-days="30">30 jours</button>
+          <button type="button" class="chip" data-months="3">3 mois</button>
+          <button type="button" class="chip active" data-months="12">12 mois</button>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Type de bien</legend>
+        <div class="row">
+          <label class="check"><input type="checkbox" name="type" value="appartement" checked> Appartement</label>
+          <label class="check"><input type="checkbox" name="type" value="maison" checked> Maison</label>
+          <label class="check"><input type="checkbox" name="type" value="immeuble"> Immeuble</label>
+          <label class="check"><input type="checkbox" name="type" value="tertiaire" id="cbTertiaire"> Tertiaire</label>
+        </div>
+        <div id="secteurBox">
+          <span class="lbl">Activité (tertiaire) <span class="hint" style="text-transform:none;letter-spacing:0;font-weight:400">– aucune cochée = toutes</span></span>
+          <div id="secteurList"><span class="hint">Chargement des secteurs d'activité…</span></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Zone</legend>
+        <select id="zone">
+          <option value="rennes">Rennes (INSEE 35238)</option>
+          <option value="metropole">Rennes Métropole (43 communes)</option>
+          <option value="centre">Centre-ville de Rennes (rayon 1 km)</option>
+          <option value="insee">Autre commune (code INSEE)…</option>
+        </select>
+        <div class="row" style="margin-top:6px">
+          <input type="text" id="insee" placeholder="Code INSEE, ex. 35047" maxlength="5" inputmode="text" style="flex:1 1 140px" aria-label="Autre code INSEE">
+        </div>
+        <div class="hint" id="zoneHint"></div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Étiquette DPE</legend>
+        <div class="row" id="etqFiltre"></div>
+        <span class="lbl" style="margin-top:10px">Surface (m²)</span>
+        <div class="row">
+          <input type="number" id="smin" min="0" step="1" placeholder="min" aria-label="Surface minimum">
+          <span class="hint">à</span>
+          <input type="number" id="smax" min="0" step="1" placeholder="max" aria-label="Surface maximum">
+        </div>
+      </fieldset>
+
+      <div class="actions">
+        <button type="submit" class="btn primary" id="btnSearch" disabled>Rechercher</button>
+        <button type="button" class="btn" id="btnStop" hidden>Arrêter</button>
+        <span id="compteur" aria-live="polite"></span>
+        <span class="spacer"></span>
+        <label class="check hint" title="DPE de moins de 15 jours, ou logements classés F/G (passoires)"><input type="checkbox" id="prospects"> Signaux prospection uniquement</label>
+        <button type="button" class="btn small" id="btnCsv" disabled>Exporter CSV</button>
+        <button type="button" class="btn small" id="btnPdf" disabled>Exporter PDF</button>
+      </div>
+    </form>
+  </section>
+
+  <div class="progress" id="progress">
+    <div class="bar"><i id="barFill"></i></div>
+    <div class="hint" id="progressTxt"></div>
+  </div>
+  <div id="messages" aria-live="polite"></div>
+
+  <section id="dashboard" hidden></section>
+
+  <section id="clients" class="card">
+    <div class="pane-head">
+      <h2>Recherches clients <span class="hint" id="clientCount"></span></h2>
+      <div class="row">
+        <button type="button" class="btn small primary" id="btnAddClient">+ Ajouter une recherche client</button>
+        <button type="button" class="btn small" id="btnExportClients" title="Sauvegarder les fiches clients dans un fichier">Sauvegarder</button>
+        <label class="btn small" style="cursor:pointer" title="Recharger un fichier de fiches clients">Importer<input type="file" id="importClients" accept="application/json,.json" hidden></label>
+      </div>
+    </div>
+    <div id="clientGrid"></div>
+  </section>
+  <div id="clientBanner"></div>
+
+  <section id="resultats">
+    <div class="pane card">
+      <div class="pane-head">
+        <strong>Carte</strong>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div id="map" role="region" aria-label="Carte des DPE"></div>
+    </div>
+    <div class="pane card">
+      <div class="pane-head">
+        <strong>Liste <span class="hint" id="listCount"></span></strong>
+        <label class="check hint"><input type="checkbox" id="onlyVisible"> Limiter à la zone visible de la carte</label>
+      </div>
+      <div class="scroll-hint">↔ Faites glisser le tableau pour voir toutes les colonnes · touchez une ligne pour la situer sur la carte</div>
+      <div class="table-wrap" id="tableWrap">
+        <table>
+          <thead><tr id="thead"></tr></thead>
+          <tbody id="tbody"><tr><td colspan="13" class="empty">Choisissez vos filtres puis cliquez sur « Rechercher ».</td></tr></tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <dialog id="clientDialog">
+    <form method="dialog" id="clientForm">
+      <h2 id="clientDialogTitle">Recherche client</h2>
+      <div class="grid2">
+        <label><span class="lbl">Nom du client</span><input type="text" name="nom" required placeholder="ex. M. et Mme Martin"></label>
+        <label><span class="lbl">Contact</span><input type="text" name="contact" placeholder="Téléphone ou e-mail"></label>
+      </div>
+      <div class="grid2">
+        <label><span class="lbl">Projet</span><select name="projet"><option value="achat">Achat</option><option value="location">Location</option><option value="investissement">Investissement locatif</option></select></label>
+        <label><span class="lbl">Budget (indicatif)</span><input type="text" name="budget" placeholder="ex. 350 000 €"></label>
+      </div>
+      <fieldset><legend>Type de bien recherché</legend><div class="row">
+        <label class="check"><input type="checkbox" name="types" value="appartement"> Appartement</label>
+        <label class="check"><input type="checkbox" name="types" value="maison"> Maison</label>
+        <label class="check"><input type="checkbox" name="types" value="immeuble"> Immeuble</label>
+        <label class="check"><input type="checkbox" name="types" value="tertiaire"> Local tertiaire</label>
+      </div></fieldset>
+      <div class="grid2">
+        <label><span class="lbl">Secteur</span><select name="zone">
+          <option value="toutes">Toute la zone recherchée</option>
+          <option value="rennes">Rennes</option><option value="metropole">Rennes Métropole</option>
+          <option value="centre">Centre-ville de Rennes (1 km)</option><option value="insee">Commune (code INSEE)</option></select></label>
+        <label><span class="lbl">Code INSEE</span><input type="text" name="insee" maxlength="5" placeholder="si « Commune »"></label>
+      </div>
+      <div class="grid2">
+        <label><span class="lbl">Surface min (m²)</span><input type="number" name="smin" min="0"></label>
+        <label><span class="lbl">Surface max (m²)</span><input type="number" name="smax" min="0"></label>
+      </div>
+      <fieldset><legend>Étiquettes DPE acceptées</legend><div class="row" id="clientEtq"></div></fieldset>
+      <label><span class="lbl">Notes</span><textarea name="notes" placeholder="ex. jardin, proche métro, 3 chambres…"></textarea></label>
+      <div class="foot">
+        <button type="button" class="btn" id="btnDeleteClient" hidden style="margin-right:auto;border-color:var(--danger);color:var(--danger)">Supprimer</button>
+        <button type="button" class="btn" value="cancel" id="btnCancelClient">Annuler</button>
+        <button type="submit" class="btn primary" value="ok">Enregistrer</button>
+      </div>
+    </form>
+  </dialog>
+
+  <details class="champs" id="champs"><summary>Champs ADEME utilisés (vérifiés au démarrage dans le schéma de l'API)</summary><div id="champsList"></div></details>
+  <footer class="src">
+    Source : ADEME – Observatoire DPE-Audit, jeux « DPE Logements existants (depuis juillet 2021) » et « DPE Tertiaire (depuis juillet 2021) » sur data.ademe.fr (Licence Ouverte 2.0). L'ADEME publie les DPE avec quelques jours de retard.
+    Les fiches clients restent dans ce navigateur (pensez à « Sauvegarder »). Icônes : <span class="flag cli">👤 2</span> clients correspondants · <span class="flag new">Nouveau</span> DPE de moins de 15 jours · <span class="flag pass">Passoire</span> logement F/G (G interdit à la location depuis 2025, F en 2028) · <span class="flag dup">⧉ Doublon</span> même adresse et mêmes valeurs · <span class="flag ab">⚠ Aberrant</span> coût &gt; 50 000 €/an pour moins de 200 m².
+  </footer>
+</main>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha384-cxOPjt7s7Iz04uaHJceBmS+qpjv2JkIHNVcuOrM+YHwZOmJGBXI00mdUXEq65HTH" crossorigin=""></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js" integrity="sha384-eXVCORTRlv4FUUgS/xmOyr66XBVraen8ATNLMESp92FKXLAMiKkerixTiBvXriZr" crossorigin=""></script>
+<script src="https://unpkg.com/jspdf@2.5.1/dist/jspdf.umd.min.js" integrity="sha384-JcnsjUPPylna1s1fvi1u12X5qjY5OL56iySh75FdtrwhO/SWXgMjoVqcKyIIWOLk" crossorigin=""></script>
+<script src="https://unpkg.com/jspdf-autotable@3.8.2/dist/jspdf.plugin.autotable.min.js" integrity="sha384-fCAW/rDWORTbQXSiB7mOg0QtQ5c+r0f544y6XoKjuVva0nMBlCpNUjiFeG5iMdS3" crossorigin=""></script>
+<script>
+'use strict';
+
+/* ---------- Configuration ---------- */
+const API = 'https://data.ademe.fr/data-fair/api/v1/datasets/';
+const GEO_EPCI_RENNES = 'https://geo.api.gouv.fr/epcis/243500139/communes?fields=nom,code';
+const RAPPORT_URL = n => 'https://observatoire-dpe-audit.ademe.fr/afficher-dpe/' + encodeURIComponent(n);
+const GMAPS_URL = (lat, lon) => `https://www.google.com/maps/search/?api=1&query=${lat},${lon}`;
+const CENTRE = { lon: -1.6797, lat: 48.1114, metres: 1000 };
+const PAGE_SIZE = 1000;          // maximum autorisé par data-fair
+const MAX_RESULTS = 10000;
+const NOUVEAU_JOURS = 15;
+const COLORS = { A: '#009c6d', B: '#52b153', C: '#a5cc74', D: '#f4e70f', E: '#f0b40f', F: '#eb8235', G: '#d7221f' };
+const TEXT_ON = { A: '#fff', B: '#fff', C: '#1d231f', D: '#1d231f', E: '#1d231f', F: '#fff', G: '#fff' };
+const GREY = '#9aa0a6';
+const LETTERS = Object.keys(COLORS);
+
+// Champs logiques -> noms candidats. Le nom réellement utilisé est celui trouvé dans le
+// schéma renvoyé par l'API au démarrage (aucun champ n'est utilisé sans avoir été vérifié).
+const DATASETS = {
+  logement: {
+    id: 'meg-83tjwtg8dyz4vv7h1dqe', label: 'Logements existants',
+    fields: {
+      numero: ['numero_dpe'], date: ['date_etablissement_dpe'], type: ['type_batiment'],
+      adresse: ['adresse_ban'], cp: ['code_postal_ban'], commune: ['nom_commune_ban'], insee: ['code_insee_ban'],
+      complement: ['complement_adresse_logement'], surface: ['surface_habitable_logement'],
+      periode: ['periode_construction'], chauffage: ['type_energie_principale_chauffage'],
+      etiquette: ['etiquette_dpe'], conso: ['conso_5_usages_par_m2_ep'], etiquetteGes: ['etiquette_ges'],
+      ges: ['emission_ges_5_usages_par_m2'], cout: ['cout_total_5_usages'], geo: ['_geopoint']
+    },
+    required: ['numero', 'date', 'type', 'insee', 'etiquette']
+  },
+  tertiaire: {
+    id: 'j9ol0fwjqckyf49vr29nknbu', label: 'Tertiaire',
+    fields: {
+      numero: ['numero_dpe'], date: ['date_etablissement_dpe'],
+      adresse: ['adresse_ban'], cp: ['code_postal_ban'], commune: ['nom_commune_ban'], insee: ['code_insee_ban'],
+      surface: ['surface_utile'], periode: ['periode_construction'], chauffage: ['type_energie_principale_chauffage'],
+      etiquette: ['etiquette_dpe'], conso: ['conso_kwhep_m2_an'], etiquetteGes: ['etiquette_ges'],
+      ges: ['emission_ges_kg_co2_m2_an'], cout: ['frais_annuel_energie_n1'],
+      secteur: ['secteur_activite'], methode: ['methode_dpe'], geo: ['_geopoint']
+    },
+    required: ['numero', 'date', 'insee']
+  }
+};
+
+// Regroupement des valeurs réelles de secteur_activite en grandes familles (mots-clés).
+const FAMILLES = [
+  ['Bureaux', /bureau|administra|tertiaire de bureau/],
+  ['Commerces', /commerc|magasin|boutique|vente|supermarch|hypermarch|grande surface|galerie/],
+  ['Restaurants, cafés', /restaura|cafe|brasserie|\bbar\b|traiteur|restauration/],
+  ['Hôtels, hébergement', /hotel|hebergement|gite|camping|residence de tourisme|foyer/],
+  ['Santé, social', /sante|hopital|clinique|medic|soin|ehpad|social|pharmac|veterin|cabinet/],
+  ['Enseignement, petite enfance', /enseign|ecole|scolaire|college|lycee|universit|creche|formation/],
+  ['Sport, culture, loisirs', /sport|culture|loisir|cinema|spectacle|musee|biblioth|culte|piscine|gymnase/],
+  ['Entrepôts, industrie, artisanat', /entrepot|logisti|industri|atelier|stockage|artisan|garage/]
+];
+
+/* ---------- État ---------- */
+const state = {
+  mode: null,              // 'direct' | 'proxy'
+  fields: {},              // dsKey -> { logique: nomRéel }
+  metropole: null,         // [{nom, code}]
+  secteurs: new Map(),     // valeur -> nb (national)
+  results: [],             // tous les DPE chargés
+  view: [],                // après filtres côté page
+  markers: [],
+  sort: { key: 'date', dir: -1 },
+  selected: -1,
+  apiTotal: 0,
+  lastQuery: null,
+  abort: null,
+  clients: [],             // fiches de recherche clients
+  clientMatches: new Map(),// id client -> [index résultats]
+  rowClients: [],          // index résultat -> [clients]
+  clientFilter: null,      // id client dont on affiche les correspondances
+  editing: null
+};
+
+/* ---------- Outils ---------- */
+const $ = s => document.querySelector(s);
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const nf0 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 0 });
+const nf1 = new Intl.NumberFormat('fr-FR', { maximumFractionDigits: 1 });
+const fmt0 = v => v == null || isNaN(v) ? '' : nf0.format(v);
+const fmt1 = v => v == null || isNaN(v) ? '' : nf1.format(v);
+const frDate = d => d ? d.slice(0, 10).split('-').reverse().join('/') : '';
+const iso = d => new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 10);
+const norm = s => String(s ?? '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '').replace(/\s+/g, ' ').trim();
+const num = v => (v === '' || v == null || isNaN(+v)) ? null : +v;
+const cap = s => s ? s.charAt(0).toUpperCase() + s.slice(1) : '';
+
+class ApiError extends Error {
+  constructor(kind, status, detail) { super(kind); this.kind = kind; this.status = status; this.detail = detail; }
+}
+
+function message(text, kind = 'warn', html = false) {
+  const div = document.createElement('div');
+  div.className = 'msg ' + (kind === 'err' ? 'err' : kind === 'info' ? 'info' : '');
+  if (html) div.innerHTML = text; else div.textContent = text;
+  $('#messages').appendChild(div);
+  return div;
+}
+const clearMessages = () => { $('#messages').innerHTML = ''; };
+
+let slowMsg = null;
+function setSlow(on) {
+  if (on && !slowMsg) slowMsg = message("L'API ADEME est lente à répondre… on patiente (jusqu'à 45 s par page, puis 2 nouvelles tentatives).");
+  if (!on && slowMsg) { slowMsg.remove(); slowMsg = null; }
+}
+
+function proxied(url) { return state.mode === 'proxy' ? '/proxy?url=' + encodeURIComponent(url) : url; }
+
+async function fetchJSON(url, { signal, timeout = 45000, mode } = {}) {
+  const target = (mode || state.mode) === 'proxy' ? '/proxy?url=' + encodeURIComponent(url) : url;
+  const ctrl = new AbortController();
+  let reason = null;
+  const t = setTimeout(() => { reason = 'timeout'; ctrl.abort(); }, timeout);
+  const slow = setTimeout(() => setSlow(true), 8000);
+  const onAbort = () => { reason = 'user'; ctrl.abort(); };
+  if (signal) { if (signal.aborted) onAbort(); else signal.addEventListener('abort', onAbort); }
+  try {
+    const r = await fetch(target, { signal: ctrl.signal, headers: { Accept: 'application/json' } });
+    if (!r.ok) {
+      const txt = await r.text().catch(() => '');
+      throw new ApiError('http', r.status, txt.slice(0, 400));
+    }
+    return await r.json();
+  } catch (e) {
+    if (e instanceof ApiError) throw e;
+    if (reason === 'user') throw new ApiError('abort');
+    if (reason === 'timeout') throw new ApiError('timeout');
+    throw new ApiError('network', 0, e.message);
+  } finally {
+    clearTimeout(t); clearTimeout(slow); setSlow(false);
+    if (signal) signal.removeEventListener('abort', onAbort);
+  }
+}
+
+// Nouvelles tentatives sur délai dépassé / erreurs serveur / 429.
+async function fetchRetry(url, opts = {}) {
+  let last;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try { return await fetchJSON(url, opts); }
+    catch (e) {
+      last = e;
+      const retriable = e.kind === 'timeout' || (e.kind === 'http' && (e.status >= 500 || e.status === 429));
+      if (!retriable || attempt === 2) throw e;
+      await new Promise(r => setTimeout(r, 2000 * (attempt + 1)));
+    }
+  }
+  throw last;
+}
+
+function explain(e) {
+  if (e.kind === 'abort') return 'Recherche arrêtée.';
+  if (e.kind === 'timeout') return "L'API ADEME ne répond pas (délai dépassé après 3 tentatives). Réessayez dans quelques minutes ou réduisez la période / la zone.";
+  if (e.kind === 'network') return state.mode === 'proxy'
+    ? "Le proxy local ne parvient pas à joindre l'API ADEME (connexion Internet ? pare-feu ?)."
+    : "Impossible de joindre l'API ADEME depuis le navigateur. Lancez le petit serveur local : python3 serveur_dpe.py (voir README), puis ouvrez http://localhost:8765.";
+  if (e.kind === 'http') return `L'API ADEME a renvoyé une erreur ${e.status}. ${e.detail ? 'Détail : ' + e.detail : ''}`;
+  return String(e.message || e);
+}
+
+/* ---------- Démarrage : connexion + vérification des champs ---------- */
+async function detectMode() {
+  const probe = API + DATASETS.logement.id;
+  try { const meta = await fetchJSON(probe, { mode: 'direct', timeout: 20000 }); state.mode = 'direct'; return meta; }
+  catch (e) {
+    if (e.kind !== 'network' && e.kind !== 'timeout') throw e;
+    if (location.protocol.startsWith('http')) {
+      try {
+        const ping = await fetch('/proxy/ping');
+        if (ping.ok) { state.mode = 'proxy'; return await fetchRetry(probe); }
+      } catch (_) { /* pas de proxy */ }
+    }
+    state.mode = 'direct';
+    throw e;
+  }
+}
+
+function resolveFields(dsKey, meta) {
+  const ds = DATASETS[dsKey];
+  const keys = new Set((meta.schema || []).map(f => f.key));
+  const out = {}, missing = [];
+  for (const [logical, cands] of Object.entries(ds.fields)) {
+    const hit = cands.find(c => keys.has(c));
+    if (hit) out[logical] = hit; else missing.push(cands.join(' / '));
+  }
+  const blocking = ds.required.filter(k => !out[k]);
+  return { out, missing, blocking };
+}
+
+async function init() {
+  setDefaultDates(12, 'months');
+  buildEtiquetteFilter();
+  buildHead();
+  initMap();
+  let metaLog;
+  try { metaLog = await detectMode(); }
+  catch (e) {
+    $('#stConn').innerHTML = '<span class="dot ko"></span>API ADEME injoignable';
+    message(explain(e), 'err');
+    return;
+  }
+  $('#stConn').innerHTML = `<span class="dot ok"></span>API ADEME : <b>${state.mode === 'proxy' ? 'via le proxy local' : 'connexion directe'}</b>`;
+
+  const lines = [];
+  const handle = (dsKey, meta) => {
+    const { out, missing, blocking } = resolveFields(dsKey, meta);
+    state.fields[dsKey] = out;
+    lines.push(`<p><b>${DATASETS[dsKey].label}</b> (${esc(DATASETS[dsKey].id)}, ${fmt0(meta.count)} lignes) : ` +
+      Object.entries(out).map(([k, v]) => `<code>${esc(v)}</code>`).join(', ') +
+      (missing.length ? `<br>Absents du schéma : <code>${esc(missing.join(', '))}</code>` : '') + '</p>');
+    if (blocking.length) {
+      message(`Jeu « ${DATASETS[dsKey].label} » : champs indispensables introuvables dans le schéma de l'API (${blocking.join(', ')}). Ce jeu est désactivé.`, 'err');
+      delete state.fields[dsKey];
+    } else if (missing.length) {
+      message(`Jeu « ${DATASETS[dsKey].label} » : champs absents du schéma, colonnes laissées vides : ${missing.join(', ')}.`);
+    }
+  };
+  handle('logement', metaLog);
+  try { handle('tertiaire', await fetchRetry(API + DATASETS.tertiaire.id)); }
+  catch (e) { message('Jeu Tertiaire indisponible : ' + explain(e)); }
+  $('#champsList').innerHTML = lines.join('');
+
+  $('#btnSearch').disabled = !Object.keys(state.fields).length;
+  loadLastDates();
+  loadSecteurs();
+  if ($('#zone').value === 'metropole') loadMetropole();
+}
+
+async function loadLastDates() {
+  const parts = [];
+  for (const dsKey of Object.keys(state.fields)) {
+    const F = state.fields[dsKey];
+    const p = new URLSearchParams({ size: 1, select: F.date, sort: '-' + F.date });
+    // Ignore d'éventuelles dates futures saisies par erreur
+    p.set(F.date + '_lte', iso(new Date()));
+    try {
+      const j = await fetchRetry(API + DATASETS[dsKey].id + '/lines?' + p);
+      const d = j.results?.[0]?.[F.date];
+      if (d) parts.push(`${dsKey === 'logement' ? 'logements' : 'tertiaire'} <b>${frDate(d)}</b>`);
+    } catch (_) { /* non bloquant */ }
+  }
+  if (parts.length) $('#stLast').innerHTML = 'DPE le plus récent publié : ' + parts.join(' · ');
+}
+
+async function loadSecteurs() {
+  const F = state.fields.tertiaire;
+  if (!F?.secteur) { $('#secteurList').innerHTML = '<span class="hint">Champ secteur_activite indisponible.</span>'; return; }
+  try {
+    const p = new URLSearchParams({ field: F.secteur, agg_size: 500, size: 0 });
+    const j = await fetchRetry(API + DATASETS.tertiaire.id + '/values_agg?' + p);
+    for (const a of j.aggs || []) if (a.value) state.secteurs.set(String(a.value), a.total);
+  } catch (_) { /* repli : valeurs tirées des résultats chargés */ }
+  renderSecteurs();
+}
+
+function familleOf(value) {
+  const n = norm(value);
+  const f = FAMILLES.find(([, re]) => re.test(n));
+  return f ? f[0] : 'Autres activités';
+}
+
+function renderSecteurs() {
+  const box = $('#secteurList');
+  const values = new Map(state.secteurs);
+  const local = new Map();
+  for (const r of state.results) if (r.ds === 'tertiaire' && r.secteur) {
+    local.set(r.secteur, (local.get(r.secteur) || 0) + 1);
+    if (!values.has(r.secteur)) values.set(r.secteur, 0);
+  }
+  if (!values.size) { box.innerHTML = '<span class="hint">Les activités apparaîtront après une recherche.</span>'; return; }
+  const checked = new Set([...box.querySelectorAll('input:checked')].map(i => i.value));
+  const fams = new Map();
+  for (const v of values.keys()) {
+    const f = familleOf(v);
+    if (!fams.has(f)) fams.set(f, []);
+    fams.get(f).push(v);
+  }
+  const order = [...FAMILLES.map(f => f[0]), 'Autres activités'].filter(f => fams.has(f));
+  box.innerHTML = order.map(f => {
+    const vals = fams.get(f).sort();
+    const n = vals.reduce((s, v) => s + (local.get(v) || 0), 0);
+    return `<label class="check" title="${esc(vals.join(' · '))}"><input type="checkbox" value="${esc(f)}" ${checked.has(f) ? 'checked' : ''}> ${esc(f)}${state.results.length ? ` <span class="n">(${n})</span>` : ''}</label>`;
+  }).join('');
+}
+
+async function loadMetropole() {
+  if (state.metropole) return state.metropole;
+  $('#zoneHint').textContent = 'Chargement de la liste des communes (geo.api.gouv.fr)…';
+  let list;
+  try { list = await fetchJSON(GEO_EPCI_RENNES, { mode: 'direct', timeout: 20000 }); }
+  catch (e) {
+    if (state.mode === 'proxy') list = await fetchRetry(GEO_EPCI_RENNES).catch(() => null);
+  }
+  if (!Array.isArray(list) || !list.length) {
+    $('#zoneHint').textContent = 'Liste des communes de Rennes Métropole indisponible (geo.api.gouv.fr ne répond pas).';
+    throw new Error('Liste des communes de Rennes Métropole indisponible (geo.api.gouv.fr).');
+  }
+  state.metropole = list.map(c => ({ nom: c.nom, code: c.code }));
+  $('#zoneHint').textContent = `${state.metropole.length} communes : ` + state.metropole.map(c => c.nom).join(', ');
+  return state.metropole;
+}
+
+/* ---------- Formulaire ---------- */
+function setDefaultDates(n, unit) {
+  const to = new Date(), from = new Date();
+  if (unit === 'days') from.setDate(from.getDate() - n);
+  else from.setMonth(from.getMonth() - n);
+  $('#du').value = iso(from); $('#au').value = iso(to);
+}
+
+function buildEtiquetteFilter() {
+  $('#etqFiltre').innerHTML = LETTERS.map(l =>
+    `<label class="etq-check" title="Étiquette ${l}"><input type="checkbox" name="etq" value="${l}" checked><span style="background:${COLORS[l]};color:${TEXT_ON[l]}">${l}</span></label>`
+  ).join('');
+}
+
+function readFilters() {
+  const types = [...document.querySelectorAll('input[name=type]:checked')].map(i => i.value);
+  const etqs = [...document.querySelectorAll('input[name=etq]:checked')].map(i => i.value);
+  const f = {
+    from: $('#du').value, to: $('#au').value,
+    types: types.filter(t => t !== 'tertiaire'), tertiaire: types.includes('tertiaire'),
+    etiquettes: etqs, smin: num($('#smin').value), smax: num($('#smax').value),
+    zone: $('#zone').value, insee: $('#insee').value.trim().toUpperCase()
+  };
+  if (f.insee && f.zone !== 'insee') f.zone = 'insee';
+  return f;
+}
+
+function distanceM(lat1, lon1, lat2, lon2) {
+  const R = 6371000, rad = Math.PI / 180;
+  const a = Math.sin((lat2 - lat1) * rad / 2) ** 2 + Math.cos(lat1 * rad) * Math.cos(lat2 * rad) * Math.sin((lon2 - lon1) * rad / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(a));
+}
+
+function validate(f) {
+  if (!f.from || !f.to) return 'Indiquez une période complète.';
+  if (f.from > f.to) return 'La date de début est postérieure à la date de fin.';
+  if (!f.types.length && !f.tertiaire) return 'Cochez au moins un type de bien.';
+  if (!f.etiquettes.length) return 'Cochez au moins une étiquette DPE.';
+  if (f.zone === 'insee' && !/^(\d{5}|2[AB]\d{3})$/.test(f.insee)) return 'Code INSEE invalide (5 caractères, ex. 35047 ou 2A004).';
+  if (f.smin != null && f.smax != null && f.smin > f.smax) return 'La surface minimum dépasse la surface maximum.';
+  return null;
+}
+
+async function zoneParams(f, F, p) {
+  if (f.zone === 'rennes') p.set(F.insee + '_eq', '35238');
+  else if (f.zone === 'insee') p.set(F.insee + '_eq', f.insee);
+  else if (f.zone === 'metropole') p.set(F.insee + '_in', (await loadMetropole()).map(c => c.code).join(','));
+  else if (f.zone === 'centre') p.set('geo_distance', `${CENTRE.lon},${CENTRE.lat},${CENTRE.metres}`);
+}
+
+async function buildUrl(dsKey, f) {
+  const F = state.fields[dsKey];
+  const p = new URLSearchParams();
+  p.set('size', PAGE_SIZE);
+  p.set('select', [...new Set(Object.values(F))].join(','));
+  p.set('sort', '-' + F.date);
+  p.set(F.date + '_gte', f.from);
+  p.set(F.date + '_lte', f.to);
+  await zoneParams(f, F, p);
+  if (dsKey === 'logement') p.set(F.type + '_in', f.types.join(','));
+  if (f.etiquettes.length < LETTERS.length && F.etiquette) p.set(F.etiquette + '_in', f.etiquettes.join(','));
+  if (F.surface && f.smin != null) p.set(F.surface + '_gte', f.smin);
+  if (F.surface && f.smax != null) p.set(F.surface + '_lte', f.smax);
+  return API + DATASETS[dsKey].id + '/lines?' + p;
+}
+
+/* ---------- Recherche ---------- */
+function normalize(dsKey, raw) {
+  const F = state.fields[dsKey];
+  const g = k => F[k] ? raw[F[k]] : undefined;
+  let lat = null, lon = null;
+  const gp = g('geo');
+  if (gp) {
+    const [a, b] = String(gp).split(',').map(Number);
+    if (isFinite(a) && isFinite(b)) { lat = a; lon = b; }
+  }
+  const et = String(g('etiquette') ?? '').trim().toUpperCase();
+  const etG = String(g('etiquetteGes') ?? '').trim().toUpperCase();
+  const methode = g('methode') ?? '';
+  const etiquette = COLORS[et] ? et : null;
+  return {
+    ds: dsKey,
+    numero: g('numero') ?? '',
+    date: String(g('date') ?? '').slice(0, 10),
+    type: dsKey === 'tertiaire' ? 'Tertiaire' : cap(String(g('type') ?? '')),
+    adresse: g('adresse') ?? '', cp: g('cp') ?? '', commune: g('commune') ?? '',
+    complement: g('complement') ?? '',
+    surface: num(g('surface')), periode: g('periode') ?? '', chauffage: g('chauffage') ?? '',
+    etiquette, conso: num(g('conso')), etiquetteGes: COLORS[etG] ? etG : null, ges: num(g('ges')),
+    cout: num(g('cout')), secteur: g('secteur') ?? '', methode,
+    vierge: dsKey === 'tertiaire' && (/vierge/i.test(methode) || !etiquette),
+    insee: String(g('insee') ?? ''),
+    lat, lon, flags: {}
+  };
+}
+
+function computeFlags(rows) {
+  const today = new Date(); today.setHours(0, 0, 0, 0);
+  const limit = iso(new Date(today.getTime() - NOUVEAU_JOURS * 86400000));
+  const groups = new Map();
+  rows.forEach((r, i) => { r._i = i; });
+  for (const r of rows) {
+    if (r.adresse) {
+      const key = [norm(r.adresse), norm(r.complement), r.surface, r.conso, r.ges, r.etiquette].join('|');
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(r);
+    }
+    r.flags.aberrant = r.cout != null && r.cout > 50000 && r.surface != null && r.surface < 200;
+    r.flags.nouveau = r.date >= limit;
+    r.flags.passoire = r.ds === 'logement' && (r.etiquette === 'F' || r.etiquette === 'G');
+  }
+  for (const g of groups.values()) if (g.length > 1) for (const r of g) r.flags.doublon = g.length;
+}
+
+function setProgress(done, total, label) {
+  $('#progress').classList.add('show');
+  $('#barFill').style.width = total ? Math.min(100, done / total * 100) + '%' : '0';
+  $('#progressTxt').textContent = label || `${fmt0(done)} / ${fmt0(total)} DPE chargés…`;
+}
+
+async function search(ev) {
+  ev?.preventDefault();
+  if (state.abort) return;
+  clearMessages();
+  const f = readFilters();
+  const err = validate(f);
+  if (err) { message(err, 'err'); return; }
+
+  const jobs = [];
+  if (f.types.length && state.fields.logement) jobs.push('logement');
+  if (f.tertiaire && state.fields.tertiaire) jobs.push('tertiaire');
+  if (!jobs.length) { message('Le jeu de données correspondant au type choisi est indisponible.', 'err'); return; }
+
+  state.abort = new AbortController();
+  const signal = state.abort.signal;
+  $('#btnSearch').disabled = true; $('#btnStop').hidden = false;
+  $('#compteur').textContent = 'Recherche…';
+  setProgress(0, 0, 'Interrogation de l\'API ADEME…');
+
+  try {
+    // 1re page de chaque jeu : on obtient le total avant de tout télécharger.
+    const first = {};
+    for (const ds of jobs) first[ds] = await fetchRetry(await buildUrl(ds, f), { signal });
+    const total = jobs.reduce((s, ds) => s + (first[ds].total || 0), 0);
+    state.apiTotal = total;
+    if (total > MAX_RESULTS) {
+      $('#compteur').innerHTML = `${fmt0(total)} DPE trouvés <small>– trop pour être affichés</small>`;
+      message(`${fmt0(total)} DPE correspondent à votre recherche, au-delà de la limite de ${fmt0(MAX_RESULTS)}. Réduisez la période (ex. « 3 mois ») ou la zone (ex. Rennes au lieu de la Métropole), ou ajoutez un filtre d'étiquette ou de surface.`, 'err');
+      return;
+    }
+    const rows = [];
+    for (const ds of jobs) {
+      let page = first[ds];
+      for (;;) {
+        for (const raw of page.results || []) rows.push(normalize(ds, raw));
+        setProgress(rows.length, total);
+        if (!page.next || !(page.results || []).length) break;
+        page = await fetchRetry(page.next, { signal });
+      }
+    }
+    computeFlags(rows);
+    state.results = rows;
+    state.lastQuery = f;
+    state.selected = -1;
+    await computeMatches();
+    const sansGeo = rows.filter(r => r.lat == null).length;
+    if (rows.length !== total) message(`Attention : ${fmt0(rows.length)} DPE reçus pour un total annoncé de ${fmt0(total)} par l'API.`);
+    if (sansGeo) message(`${fmt0(sansGeo)} DPE sans coordonnées GPS : ils figurent dans la liste mais pas sur la carte.`, 'info');
+    renderSecteurs();
+    buildMarkers();
+    applyView(true);
+  } catch (e) {
+    if (e.kind !== 'abort') $('#compteur').textContent = '';
+    else $('#compteur').textContent = 'Recherche arrêtée';
+    message(explain(e), e.kind === 'abort' ? 'info' : 'err');
+  } finally {
+    state.abort = null;
+    $('#btnSearch').disabled = false; $('#btnStop').hidden = true;
+    $('#progress').classList.remove('show');
+  }
+}
+
+/* ---------- Filtres côté page (secteur, prospects, zone visible) ---------- */
+function applyView(fit = false) {
+  const f = state.lastQuery;
+  const fams = new Set([...document.querySelectorAll('#secteurList input:checked')].map(i => i.value));
+  const prospects = $('#prospects').checked;
+  const clientIds = state.clientFilter ? new Set(state.clientMatches.get(state.clientFilter) || []) : null;
+  const ids = [];
+  state.results.forEach((r, i) => {
+    if (f && r.surface != null && ((f.smin != null && r.surface < f.smin) || (f.smax != null && r.surface > f.smax))) return;
+    if (r.ds === 'tertiaire' && fams.size && !fams.has(familleOf(r.secteur))) return;
+    if (prospects && !(r.flags.nouveau || r.flags.passoire)) return;
+    if (clientIds && !clientIds.has(i)) return;
+    ids.push(i);
+  });
+  state.view = ids;
+  renderDashboard();
+  renderBanner();
+  updateMap(fit);
+  renderTable();
+  renderLegend();
+  const n = ids.length;
+  if (state.lastQuery) {
+    $('#compteur').innerHTML = `${fmt0(n)} DPE trouvé${n > 1 ? 's' : ''}` +
+      (n !== state.apiTotal ? ` <small>(total API : ${fmt0(state.apiTotal)})</small>` : '');
+  }
+  $('#btnCsv').disabled = $('#btnPdf').disabled = !n;
+}
+
+/* ---------- Carte ---------- */
+let map, cluster;
+function initMap() {
+  if (!window.L) { message('La bibliothèque de carte (Leaflet) n\'a pas pu être chargée : vérifiez la connexion Internet.', 'err'); return; }
+  map = L.map('map', { preferCanvas: true }).setView([CENTRE.lat, CENTRE.lon], 12);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap' }).addTo(map);
+  cluster = L.markerClusterGroup({ chunkedLoading: true, maxClusterRadius: 45, disableClusteringAtZoom: 18 });
+  map.addLayer(cluster);
+  map.on('moveend', () => { if ($('#onlyVisible').checked) renderTable(); });
+}
+
+function colorOf(r) { return r.etiquette ? COLORS[r.etiquette] : GREY; }
+
+function buildMarkers() {
+  if (!map) return;
+  state.markers = state.results.map((r, i) => {
+    if (r.lat == null) return null;
+    const m = L.circleMarker([r.lat, r.lon], { radius: 7, weight: 1.5, color: '#fff', fillColor: colorOf(r), fillOpacity: .95 });
+    m.bindPopup(() => popupHtml(r), { maxWidth: 300, autoPanPadding: [20, 20] });
+    m.on('click', () => selectRow(i, false));
+    return m;
+  });
+}
+
+function updateMap(fit) {
+  if (!map) return;
+  cluster.clearLayers();
+  const layers = state.view.map(i => state.markers[i]).filter(Boolean);
+  cluster.addLayers(layers);
+  if (fit && layers.length) map.fitBounds(cluster.getBounds(), { padding: [24, 24], maxZoom: 16 });
+}
+
+function etqBox(l, vierge) {
+  if (!l) return `<span class="etq" style="background:${GREY};color:#fff" title="${vierge ? 'DPE vierge (sans étiquette)' : 'Non renseignée'}">–</span>`;
+  return `<span class="etq" style="background:${COLORS[l]};color:${TEXT_ON[l]}">${l}</span>`;
+}
+
+function flagsHtml(r) {
+  const out = [];
+  if (r.flags.nouveau) out.push(`<span class="flag new" title="DPE établi il y a moins de ${NOUVEAU_JOURS} jours : mise en vente ou en location probablement imminente">Nouveau</span>`);
+  if (r.flags.passoire) out.push(`<span class="flag pass" title="Passoire énergétique (${r.etiquette}) : ${r.etiquette === 'G' ? 'interdit à la location depuis le 1er janvier 2025' : 'interdit à la location à partir du 1er janvier 2028'} – propriétaire bailleur susceptible de vendre ou de rénover">Passoire</span>`);
+  if (r.flags.doublon) out.push(`<span class="flag dup" title="Doublon probable : ${r.flags.doublon} DPE avec la même adresse et les mêmes valeurs">⧉ ${r.flags.doublon}</span>`);
+  if (r.flags.aberrant) out.push(`<span class="flag ab" title="Valeur aberrante : coût annuel de ${fmt0(r.cout)} € pour ${fmt0(r.surface)} m²">⚠</span>`);
+  const cl = state.rowClients[r._i];
+  if (cl && cl.length) out.push(`<span class="flag cli" title="Correspond à : ${esc(cl.map(c => c.nom).join(', '))}">👤 ${cl.length}</span>`);
+  if (r.vierge) out.push(`<span class="flag vierge" title="DPE tertiaire vierge : pas de consommation exploitable, pas d'étiquette">vierge</span>`);
+  return out.join('');
+}
+
+function popupHtml(r) {
+  const addr = [r.adresse, r.complement].filter(Boolean).join(' – ');
+  const rows = [
+    ['Date du DPE', frDate(r.date)],
+    [r.ds === 'tertiaire' ? 'Surface utile' : 'Surface', r.surface != null ? fmt0(r.surface) + ' m²' : ''],
+    ['Construction', r.periode],
+    ['Chauffage', r.chauffage],
+    ['Énergie', `${etqBox(r.etiquette, r.vierge)} ${r.conso != null ? fmt0(r.conso) + ' kWhEP/m²/an' : ''}`],
+    ['Climat (GES)', `${etqBox(r.etiquetteGes)} ${r.ges != null ? fmt1(r.ges) + ' kgCO2/m²/an' : ''}`],
+    ['Coût annuel', r.cout != null ? fmt0(r.cout) + ' €' : ''],
+    ['Activité', r.secteur],
+    ['Clients', (state.rowClients[r._i] || []).map(c => c.nom).join(', ')]
+  ].filter(([, v]) => v !== '' && v != null);
+  return `<div class="pp">
+    <h3>${esc(r.type)}${r.flags ? ' ' + flagsHtml(r) : ''}</h3>
+    <div class="sub">${esc(addr || 'Adresse non renseignée')}</div>
+    <dl>${rows.map(([k, v]) => `<dt>${esc(k)}</dt><dd>${k === 'Énergie' || k === 'Climat (GES)' ? v : esc(v)}</dd>`).join('')}</dl>
+    <div class="hint" style="margin-bottom:6px">N° ${esc(r.numero)}</div>
+    <div class="btns">
+      <a class="primary" href="${RAPPORT_URL(r.numero)}" target="_blank" rel="noopener">Rapport ADEME</a>
+      ${r.lat != null ? `<a href="${GMAPS_URL(r.lat, r.lon)}" target="_blank" rel="noopener">Google Maps</a>` : ''}
+    </div></div>`;
+}
+
+function renderLegend() {
+  const counts = {};
+  for (const i of state.view) { const r = state.results[i]; const k = r.etiquette || '–'; counts[k] = (counts[k] || 0) + 1; }
+  $('#legend').innerHTML = [...LETTERS, '–'].filter(l => l !== '–' || counts['–']).map(l =>
+    `<span class="k">${etqBox(l === '–' ? null : l, true)}${state.view.length ? `<span class="hint">${fmt0(counts[l] || 0)}</span>` : ''}</span>`).join('');
+}
+
+/* ---------- Tableau ---------- */
+const COLS = [
+  { key: 'date', label: 'Date', sort: r => r.date },
+  { key: 'type', label: 'Type', sort: r => r.type + r.secteur },
+  { key: 'adresse', label: 'Adresse', sort: r => norm(r.adresse) },
+  { key: 'surface', label: 'Surface', sort: r => r.surface, num: true },
+  { key: 'periode', label: 'Construction', sort: r => r.periode },
+  { key: 'chauffage', label: 'Chauffage', sort: r => r.chauffage },
+  { key: 'etiquette', label: 'DPE', sort: r => r.etiquette || 'Z' },
+  { key: 'conso', label: 'kWhEP/m²/an', sort: r => r.conso, num: true },
+  { key: 'etiquetteGes', label: 'GES', sort: r => r.etiquetteGes || 'Z' },
+  { key: 'ges', label: 'kgCO2/m²/an', sort: r => r.ges, num: true },
+  { key: 'flags', label: 'Signaux', sort: r => (r.flags.nouveau ? 4 : 0) + (r.flags.passoire ? 2 : 0) + (r.flags.aberrant ? 1 : 0) },
+  { key: 'rapport', label: 'Rapport' }
+];
+
+function buildHead() {
+  $('#thead').innerHTML = COLS.map(c => c.sort
+    ? `<th data-sort="${c.key}" scope="col">${c.label} <span class="arr">${state.sort.key === c.key ? (state.sort.dir > 0 ? '▲' : '▼') : ''}</span></th>`
+    : `<th scope="col">${c.label}</th>`).join('');
+}
+
+function sortedView() {
+  const col = COLS.find(c => c.key === state.sort.key);
+  let ids = state.view;
+  if ($('#onlyVisible').checked && map) {
+    const b = map.getBounds();
+    ids = ids.filter(i => { const r = state.results[i]; return r.lat != null && b.contains([r.lat, r.lon]); });
+  }
+  const d = state.sort.dir;
+  return [...ids].sort((a, b) => {
+    let x = col.sort(state.results[a]), y = col.sort(state.results[b]);
+    if (x == null || x === '') return 1;
+    if (y == null || y === '') return -1;
+    return (x < y ? -1 : x > y ? 1 : 0) * d;
+  });
+}
+
+function renderTable() {
+  if (!state.lastQuery) return;
+  const ids = sortedView();
+  $('#listCount').textContent = `(${fmt0(ids.length)})`;
+  if (!ids.length) {
+    $('#tbody').innerHTML = `<tr><td colspan="${COLS.length}" class="empty">Aucun DPE ne correspond.</td></tr>`;
+    return;
+  }
+  $('#tbody').innerHTML = ids.map(i => {
+    const r = state.results[i];
+    return `<tr data-i="${i}"${i === state.selected ? ' class="sel"' : ''}>
+      <td class="nowrap">${frDate(r.date)}</td>
+      <td>${esc(r.type)}${r.secteur ? `<span class="hint" style="display:block">${esc(r.secteur)}</span>` : ''}</td>
+      <td class="addr">${esc(r.adresse)}${r.complement ? `<span class="cpl">${esc(r.complement)}</span>` : ''}</td>
+      <td class="num">${r.surface != null ? fmt0(r.surface) + ' m²' : ''}</td>
+      <td>${esc(r.periode)}</td>
+      <td>${esc(r.chauffage)}</td>
+      <td>${etqBox(r.etiquette, r.vierge)}</td>
+      <td class="num">${fmt0(r.conso)}</td>
+      <td>${etqBox(r.etiquetteGes)}</td>
+      <td class="num">${fmt1(r.ges)}</td>
+      <td>${flagsHtml(r)}</td>
+      <td class="nowrap"><a href="${RAPPORT_URL(r.numero)}" target="_blank" rel="noopener" title="N° ${esc(r.numero)}">Rapport ↗</a></td>
+    </tr>`;
+  }).join('');
+}
+
+function selectRow(i, fromTable) {
+  const prev = document.querySelector('#tbody tr.sel');
+  if (prev) prev.classList.remove('sel');
+  state.selected = i;
+  const tr = document.querySelector(`#tbody tr[data-i="${i}"]`);
+  if (tr) {
+    tr.classList.add('sel');
+    if (!fromTable) {
+      const wrap = $('#tableWrap');
+      wrap.scrollTop = tr.offsetTop - wrap.clientHeight / 3;
+    }
+  }
+  const m = state.markers[i];
+  if (fromTable && m && map) {
+    if (window.matchMedia('(max-width: 1099px)').matches) $('#map').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    cluster.zoomToShowLayer(m, () => { map.setView(m.getLatLng(), Math.max(map.getZoom(), 17), { animate: false }); m.openPopup(); });
+  } else if (fromTable && !m) {
+    message('Ce DPE n\'a pas de coordonnées GPS : impossible de le placer sur la carte.', 'info');
+  }
+}
+
+/* ---------- Tableau de bord ---------- */
+function renderDashboard() {
+  const box = $('#dashboard');
+  if (!state.lastQuery) { box.hidden = true; return; }
+  box.hidden = false;
+  const rows = state.view.map(i => state.results[i]);
+  const n = rows.length;
+  const pct = k => n ? Math.round(k / n * 100) + ' %' : '–';
+  const nouveaux = rows.filter(r => r.flags.nouveau).length;
+  const passoires = rows.filter(r => r.flags.passoire).length;
+  const consos = rows.map(r => r.conso).filter(v => v != null).sort((a, b) => a - b);
+  const med = consos.length ? consos[Math.floor(consos.length / 2)] : null;
+  const medL = med == null ? null : med <= 70 ? 'A' : med <= 110 ? 'B' : med <= 180 ? 'C' : med <= 250 ? 'D' : med <= 330 ? 'E' : med <= 420 ? 'F' : 'G';
+  const clientsOk = state.clients.filter(c => (state.clientMatches.get(c.id) || []).length).length;
+  const counts = {}; for (const r of rows) { const k = r.etiquette || '–'; counts[k] = (counts[k] || 0) + 1; }
+
+  const months = new Map();
+  const from = new Date(state.lastQuery.from + 'T00:00:00'), to = new Date(state.lastQuery.to + 'T00:00:00');
+  for (let d = new Date(from.getFullYear(), from.getMonth(), 1); d <= to; d.setMonth(d.getMonth() + 1)) months.set(iso(d).slice(0, 7), 0);
+  for (const r of rows) { const k = r.date.slice(0, 7); if (months.has(k)) months.set(k, months.get(k) + 1); }
+  const entries = [...months.entries()];
+  const useDays = entries.length <= 2;
+  let bars = entries;
+  if (useDays) {
+    const days = new Map();
+    for (let d = new Date(from); d <= to; d.setDate(d.getDate() + 1)) days.set(iso(d), 0);
+    for (const r of rows) if (days.has(r.date)) days.set(r.date, days.get(r.date) + 1);
+    bars = [...days.entries()];
+  }
+  const max = Math.max(1, ...bars.map(b => b[1]));
+  const W = 600, H = 130, bw = W / Math.max(bars.length, 1);
+  const moisFr = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+  const lab = k => useDays ? k.slice(8, 10) : moisFr[+k.slice(5, 7) - 1];
+  const step = Math.ceil(bars.length / 14);
+  const svg = `<svg viewBox="0 0 ${W} ${H}" preserveAspectRatio="none" role="img" aria-label="DPE par ${useDays ? 'jour' : 'mois'}">` +
+    bars.map(([k, v], i) => {
+      const h = v / max * (H - 30);
+      return `<rect x="${i * bw + bw * .12}" y="${H - 16 - h}" width="${bw * .76}" height="${h}" rx="2"><title>${useDays ? frDate(k) : lab(k) + ' ' + k.slice(0, 4)} : ${fmt0(v)} DPE</title></rect>` +
+        (i % step === 0 ? `<text x="${i * bw + bw / 2}" y="${H - 3}" text-anchor="middle">${lab(k)}</text>` : '') +
+        (v && bars.length <= 31 ? `<text x="${i * bw + bw / 2}" y="${H - 19 - h}" text-anchor="middle">${v}</text>` : '');
+    }).join('') + '</svg>';
+
+  const kpi = (v, l, s, accent) => `<div class="card kpi" style="--accent:${accent}"><div class="l">${l}</div><div class="v">${v}</div><div class="s">${s}</div></div>`;
+  box.innerHTML = '<div class="kpis">' +
+    kpi(fmt0(n), 'DPE affichés', `sur ${fmt0(state.results.length)} chargés`, 'var(--green-700)') +
+    kpi(fmt0(nouveaux), `Nouveaux (${NOUVEAU_JOURS} j)`, 'mises en vente / location probables', '#2e9e5b') +
+    kpi(fmt0(passoires), 'Passoires F/G', `${pct(passoires)} des DPE`, COLORS.F) +
+    kpi(med == null ? '–' : fmt0(med), 'Conso. médiane', med == null ? '' : `kWhEP/m²/an · niveau ${medL}`, med == null ? GREY : COLORS[medL]) +
+    kpi(`${clientsOk}/${state.clients.length}`, 'Clients servis', 'ayant au moins une correspondance', 'var(--gold)') + '</div>' +
+    `<div class="charts">
+      <div class="card chart"><h2>Répartition des étiquettes DPE</h2>
+        <div class="distrib">${[...LETTERS, '–'].filter(l => counts[l]).map(l => `<div style="flex-grow:${counts[l]};background:${l === '–' ? GREY : COLORS[l]};color:${l === '–' ? '#fff' : TEXT_ON[l]}" title="${l} : ${fmt0(counts[l])} (${pct(counts[l])})">${counts[l] / n > .04 ? l : ''}</div>`).join('') || '<div style="flex-grow:1;color:var(--muted)">–</div>'}</div>
+        <div class="distrib-leg">${[...LETTERS, '–'].filter(l => counts[l]).map(l => `<span>${etqBox(l === '–' ? null : l, true)} ${fmt0(counts[l])} · ${pct(counts[l])}</span>`).join('')}</div>
+      </div>
+      <div class="card chart" id="histo"><h2>DPE établis par ${useDays ? 'jour' : 'mois'}</h2>${svg}</div>
+    </div>`;
+}
+
+/* ---------- Recherches clients ---------- */
+const CLIENTS_KEY = 'dpe-explorateur-clients';
+function loadClients() {
+  try { state.clients = JSON.parse(localStorage.getItem(CLIENTS_KEY) || '[]'); } catch (_) { state.clients = []; }
+  if (!Array.isArray(state.clients)) state.clients = [];
+}
+function saveClients() {
+  try { localStorage.setItem(CLIENTS_KEY, JSON.stringify(state.clients)); }
+  catch (_) { message('Impossible d\'enregistrer les fiches dans ce navigateur : utilisez « Sauvegarder » pour garder un fichier.'); }
+}
+
+function clientZoneLabel(c) {
+  return { toutes: 'Toute zone', rennes: 'Rennes', metropole: 'Rennes Métropole', centre: 'Centre-ville', insee: 'INSEE ' + c.insee }[c.zone] || 'Toute zone';
+}
+
+function matchClient(c, r) {
+  const t = r.ds === 'tertiaire' ? 'tertiaire' : r.type.toLowerCase();
+  if (c.types.length && !c.types.includes(t)) return false;
+  if (c.smin != null && (r.surface == null || r.surface < c.smin)) return false;
+  if (c.smax != null && (r.surface == null || r.surface > c.smax)) return false;
+  if (c.etiquettes.length && c.etiquettes.length < LETTERS.length && !(r.etiquette && c.etiquettes.includes(r.etiquette))) return false;
+  if (c.zone === 'rennes' && r.insee !== '35238') return false;
+  if (c.zone === 'insee' && r.insee !== c.insee) return false;
+  if (c.zone === 'metropole' && state.metropole && !state.metropole.some(m => m.code === r.insee)) return false;
+  if (c.zone === 'centre' && (r.lat == null || distanceM(r.lat, r.lon, CENTRE.lat, CENTRE.lon) > CENTRE.metres)) return false;
+  return true;
+}
+
+async function computeMatches() {
+  if (state.clients.some(c => c.zone === 'metropole')) await loadMetropole().catch(() => null);
+  state.clientMatches = new Map();
+  state.rowClients = state.results.map(() => []);
+  for (const c of state.clients) {
+    const ids = [];
+    state.results.forEach((r, i) => { if (matchClient(c, r)) { ids.push(i); state.rowClients[i].push(c); } });
+    state.clientMatches.set(c.id, ids);
+  }
+  if (state.clientFilter && !state.clients.some(c => c.id === state.clientFilter)) state.clientFilter = null;
+  renderClients();
+}
+
+function renderClients() {
+  $('#clientCount').textContent = state.clients.length ? `(${state.clients.length})` : '';
+  const grid = $('#clientGrid');
+  if (!state.clients.length) {
+    grid.innerHTML = '<div class="client-empty">Enregistrez ce que recherchent vos clients (type, secteur, surface, étiquettes) : l\'application signale automatiquement les DPE récents qui leur correspondent — souvent des biens sur le point d\'être mis en vente ou en location.</div>';
+    return;
+  }
+  grid.innerHTML = state.clients.map(c => {
+    const ids = state.clientMatches.get(c.id) || [];
+    const nouveaux = ids.filter(i => state.results[i].flags.nouveau).length;
+    const crit = [
+      c.types.length ? c.types.map(cap).join(', ') : 'Tous types',
+      clientZoneLabel(c),
+      c.smin != null || c.smax != null ? `${c.smin ?? 0}–${c.smax ?? '∞'} m²` : null,
+      c.etiquettes.length && c.etiquettes.length < LETTERS.length ? 'DPE ' + c.etiquettes.join('') : null,
+      c.budget || null
+    ].filter(Boolean);
+    return `<div class="client${state.clientFilter === c.id ? ' active' : ''}" data-id="${esc(c.id)}">
+      <h3><span>${esc(c.nom)}</span><span class="proj">${esc({ achat: 'Achat', location: 'Location', investissement: 'Investissement' }[c.projet] || '')}</span></h3>
+      ${c.contact ? `<div class="hint">${esc(c.contact)}</div>` : ''}
+      <div class="crit">${crit.map(x => `<span>${esc(x)}</span>`).join('')}</div>
+      ${c.notes ? `<div class="notes">${esc(c.notes)}</div>` : ''}
+      <div class="match">${state.lastQuery ? `<b>${fmt0(ids.length)}</b> DPE correspondant${ids.length > 1 ? 's' : ''}${nouveaux ? ` · <span class="flag new">${nouveaux} nouveau${nouveaux > 1 ? 'x' : ''}</span>` : ''}` : '<span class="hint">Lancez une recherche pour voir les correspondances</span>'}</div>
+      <div class="btns">
+        <button type="button" class="btn small primary" data-act="voir" ${!state.lastQuery ? 'disabled' : ''}>${state.clientFilter === c.id ? 'Tout afficher' : 'Voir ses biens'}</button>
+        <button type="button" class="btn small" data-act="chercher" title="Remplir les filtres avec ses critères et lancer la recherche">Rechercher pour lui</button>
+        <button type="button" class="btn small" data-act="modifier">Modifier</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function renderBanner() {
+  const b = $('#clientBanner');
+  const c = state.clients.find(x => x.id === state.clientFilter);
+  b.classList.toggle('show', !!c);
+  if (c) b.innerHTML = `👤 Biens correspondant à <b>${esc(c.nom)}</b> : ${fmt0(state.view.length)} DPE <button type="button" class="btn small" id="btnClearClient">Tout afficher</button>`;
+}
+
+function openClientDialog(c) {
+  state.editing = c ? c.id : null;
+  const f = $('#clientForm');
+  f.reset();
+  $('#clientDialogTitle').textContent = c ? 'Modifier la recherche client' : 'Nouvelle recherche client';
+  $('#btnDeleteClient').hidden = !c;
+  const v = c || { nom: '', contact: '', projet: 'achat', budget: '', types: [], zone: 'toutes', insee: '', smin: null, smax: null, etiquettes: [...LETTERS], notes: '' };
+  for (const k of ['nom', 'contact', 'projet', 'budget', 'zone', 'insee', 'notes']) f.elements[k].value = v[k] ?? '';
+  f.elements.smin.value = v.smin ?? ''; f.elements.smax.value = v.smax ?? '';
+  f.querySelectorAll('input[name=types]').forEach(i => { i.checked = v.types.includes(i.value); });
+  f.querySelectorAll('input[name=cetq]').forEach(i => { i.checked = v.etiquettes.includes(i.value); });
+  $('#clientDialog').showModal();
+}
+
+function saveClientFromForm(e) {
+  e.preventDefault();
+  const f = $('#clientForm');
+  const c = {
+    id: state.editing || 'c' + Date.now().toString(36) + Math.random().toString(36).slice(2, 6),
+    nom: f.elements.nom.value.trim(), contact: f.elements.contact.value.trim(),
+    projet: f.elements.projet.value, budget: f.elements.budget.value.trim(),
+    types: [...f.querySelectorAll('input[name=types]:checked')].map(i => i.value),
+    zone: f.elements.zone.value, insee: f.elements.insee.value.trim().toUpperCase(),
+    smin: num(f.elements.smin.value), smax: num(f.elements.smax.value),
+    etiquettes: [...f.querySelectorAll('input[name=cetq]:checked')].map(i => i.value),
+    notes: f.elements.notes.value.trim()
+  };
+  if (!c.nom) { f.elements.nom.focus(); return; }
+  if (c.insee && c.zone !== 'insee') c.zone = 'insee';
+  if (c.zone === 'insee' && !/^(\d{5}|2[AB]\d{3})$/.test(c.insee)) { f.elements.insee.focus(); f.elements.insee.setCustomValidity('Code INSEE invalide'); f.elements.insee.reportValidity(); return; }
+  f.elements.insee.setCustomValidity('');
+  const i = state.clients.findIndex(x => x.id === c.id);
+  if (i >= 0) state.clients[i] = c; else state.clients.push(c);
+  saveClients();
+  $('#clientDialog').close();
+  refreshClients();
+}
+
+async function refreshClients() {
+  await computeMatches();
+  if (state.lastQuery) applyView(); else renderClients();
+}
+
+function searchForClient(c) {
+  document.querySelectorAll('input[name=type]').forEach(i => { i.checked = c.types.length ? c.types.includes(i.value) : i.value !== 'tertiaire'; });
+  $('#secteurBox').classList.toggle('show', $('#cbTertiaire').checked);
+  document.querySelectorAll('input[name=etq]').forEach(i => { i.checked = !c.etiquettes.length || c.etiquettes.includes(i.value); });
+  $('#smin').value = c.smin ?? ''; $('#smax').value = c.smax ?? '';
+  if (c.zone !== 'toutes') { $('#zone').value = c.zone; $('#insee').value = c.zone === 'insee' ? c.insee : ''; }
+  state.clientFilter = c.id;
+  $('#filtres').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  search();
+}
+
+/* ---------- Exports ---------- */
+function exportRows() { return sortedView().map(i => state.results[i]); }
+function fileStem() {
+  const f = state.lastQuery;
+  const zone = { rennes: 'rennes', metropole: 'rennes-metropole', centre: 'rennes-centre', insee: f.insee }[f.zone];
+  return `dpe_${zone}_${f.from}_${f.to}`;
+}
+function zoneLabel(f) {
+  return { rennes: 'Rennes (35238)', metropole: 'Rennes Métropole', centre: 'Centre-ville de Rennes (1 km)', insee: 'Commune INSEE ' + f.insee }[f.zone];
+}
+
+function exportCsv() {
+  const headers = ['numero_dpe', 'date', 'type', 'secteur_activite', 'adresse', 'complement', 'code_postal', 'commune', 'surface_m2', 'periode_construction', 'chauffage', 'etiquette_dpe', 'kwhep_m2_an', 'etiquette_ges', 'kgco2_m2_an', 'cout_annuel_eur', 'latitude', 'longitude', 'nouveau', 'passoire', 'doublon', 'aberrant', 'clients_correspondants', 'rapport_ademe'];
+  const dec = v => v == null ? '' : String(v).replace('.', ',');
+  const cell = v => { const s = String(v ?? ''); return /[;"\n\r]/.test(s) ? '"' + s.replace(/"/g, '""') + '"' : s; };
+  const lines = [headers.join(';')];
+  for (const r of exportRows()) {
+    lines.push([r.numero, r.date, r.type, r.secteur, r.adresse, r.complement, r.cp, r.commune, dec(r.surface), r.periode, r.chauffage,
+      r.etiquette || (r.vierge ? 'vierge' : ''), dec(r.conso), r.etiquetteGes || '', dec(r.ges), dec(r.cout), dec(r.lat), dec(r.lon),
+      r.flags.nouveau ? 'oui' : '', r.flags.passoire ? 'oui' : '', r.flags.doublon || '', r.flags.aberrant ? 'oui' : '', (state.rowClients[r._i] || []).map(c => c.nom).join(', '), RAPPORT_URL(r.numero)].map(cell).join(';'));
+  }
+  download(new Blob(['﻿' + lines.join('\r\n')], { type: 'text/csv;charset=utf-8' }), fileStem() + '.csv');
+}
+
+function download(blob, name) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+}
+
+function exportPdf() {
+  if (!window.jspdf) { message('La bibliothèque PDF n\'a pas pu être chargée (connexion Internet ?).', 'err'); return; }
+  const { jsPDF } = window.jspdf;
+  const t = v => String(v ?? '').replace(/[\u202f\u00a0]/g, ' ');
+  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const f = state.lastQuery, rows = exportRows();
+  const types = [...f.types.map(cap), ...(f.tertiaire ? ['Tertiaire'] : [])].join(', ');
+  doc.setFont('helvetica', 'bold'); doc.setFontSize(15); doc.setTextColor(27, 53, 39);
+  doc.text('Diagnostics de performance énergétique', 14, 15);
+  doc.setFont('helvetica', 'normal'); doc.setFontSize(9); doc.setTextColor(80);
+  const clientTxt = state.clientFilter ? ' · biens pour ' + (state.clients.find(c => c.id === state.clientFilter)?.nom || '') : '';
+  doc.text(doc.splitTextToSize(t(`${zoneLabel(f)}${clientTxt} · du ${frDate(f.from)} au ${frDate(f.to)} · ${types} · étiquettes ${f.etiquettes.join('')}` +
+    `${f.smin != null || f.smax != null ? ` · surface ${f.smin ?? 0}–${f.smax ?? 'max'} m²` : ''} · ${fmt0(rows.length)} DPE · édité le ${frDate(iso(new Date()))}`), 270), 14, 21);
+
+  const body = rows.map(r => [frDate(r.date), r.type + (r.secteur ? '\n' + r.secteur : ''), [r.adresse, r.complement].filter(Boolean).join('\n'),
+    r.surface != null ? fmt0(r.surface) : '', r.periode, r.chauffage, r.etiquette || '–', fmt0(r.conso), r.etiquetteGes || '–', fmt1(r.ges),
+    [r.flags.nouveau && 'Nouveau', r.flags.passoire && 'Passoire', r.flags.doublon && 'Doublon', r.flags.aberrant && 'Aberrant', r.vierge && 'Vierge'].filter(Boolean).join(', '),
+    r.numero].map(t));
+  const hex = h => [1, 3, 5].map(k => parseInt(h.slice(k, k + 2), 16));
+  doc.autoTable({
+    startY: 27, margin: { left: 10, right: 10, bottom: 14 },
+    head: [['Date', 'Type', 'Adresse', 'm²', 'Construction', 'Chauffage', 'DPE', 'kWhEP/m²/an', 'GES', 'kgCO2/m²/an', 'Signaux', 'N° DPE (lien)']],
+    body,
+    styles: { font: 'helvetica', fontSize: 7, cellPadding: 1.4, valign: 'middle', overflow: 'linebreak' },
+    headStyles: { fillColor: [27, 53, 39], textColor: 255, fontSize: 7 },
+    alternateRowStyles: { fillColor: [247, 243, 236] },
+    columnStyles: {
+      0: { cellWidth: 16 }, 1: { cellWidth: 26 }, 2: { cellWidth: 58 }, 3: { cellWidth: 10, halign: 'right' }, 4: { cellWidth: 20 },
+      5: { cellWidth: 24 }, 6: { cellWidth: 10, halign: 'center', fontStyle: 'bold' }, 7: { cellWidth: 16, halign: 'right' },
+      8: { cellWidth: 10, halign: 'center', fontStyle: 'bold' }, 9: { cellWidth: 16, halign: 'right' }, 10: { cellWidth: 22 },
+      11: { cellWidth: 'auto', textColor: [26, 82, 160] }
+    },
+    didParseCell: d => {
+      if (d.section !== 'body' || (d.column.index !== 6 && d.column.index !== 8)) return;
+      const l = d.cell.raw;
+      if (COLORS[l]) { d.cell.styles.fillColor = hex(COLORS[l]); d.cell.styles.textColor = TEXT_ON[l] === '#fff' ? 255 : [29, 35, 31]; }
+      else { d.cell.styles.fillColor = hex(GREY); d.cell.styles.textColor = 255; }
+    },
+    didDrawCell: d => {
+      if (d.section === 'body' && d.column.index === 11 && d.cell.raw) {
+        doc.link(d.cell.x, d.cell.y, d.cell.width, d.cell.height, { url: RAPPORT_URL(d.cell.raw) });
+      }
+    },
+    didDrawPage: () => {
+      const h = doc.internal.pageSize.getHeight(), w = doc.internal.pageSize.getWidth();
+      doc.setFontSize(7); doc.setTextColor(110);
+      doc.text("Source : ADEME – Observatoire DPE-Audit (data.ademe.fr), données ouvertes sous Licence Ouverte 2.0. Rapport complet : observatoire-dpe-audit.ademe.fr/afficher-dpe/<n° DPE>.", 10, h - 6);
+      doc.text('Page ' + doc.internal.getNumberOfPages(), w - 10, h - 6, { align: 'right' });
+    }
+  });
+  doc.save(fileStem() + '.pdf');
+}
+
+/* ---------- Événements ---------- */
+$('#filtres').addEventListener('submit', search);
+$('#btnStop').addEventListener('click', () => state.abort?.abort());
+$('#raccourcis').addEventListener('click', e => {
+  const b = e.target.closest('.chip'); if (!b) return;
+  document.querySelectorAll('#raccourcis .chip').forEach(c => c.classList.toggle('active', c === b));
+  if (b.dataset.days) setDefaultDates(+b.dataset.days, 'days'); else setDefaultDates(+b.dataset.months, 'months');
+});
+['#du', '#au'].forEach(s => $(s).addEventListener('input', () => document.querySelectorAll('#raccourcis .chip').forEach(c => c.classList.remove('active'))));
+$('#cbTertiaire').addEventListener('change', e => $('#secteurBox').classList.toggle('show', e.target.checked));
+$('#secteurList').addEventListener('change', () => { if (state.lastQuery) applyView(); });
+$('#zone').addEventListener('change', e => {
+  const z = e.target.value;
+  if (z !== 'insee') $('#insee').value = '';
+  else $('#insee').focus();
+  $('#zoneHint').textContent = z === 'centre' ? 'Rayon de 1 km autour de la place de la Mairie (lon -1,6797 · lat 48,1114).' : '';
+  if (z === 'metropole') loadMetropole().catch(err => message(err.message, 'err'));
+});
+$('#insee').addEventListener('input', e => { if (e.target.value) $('#zone').value = 'insee'; });
+$('#prospects').addEventListener('change', () => { if (state.lastQuery) applyView(); });
+$('#onlyVisible').addEventListener('change', renderTable);
+$('#thead').addEventListener('click', e => {
+  const th = e.target.closest('th[data-sort]'); if (!th) return;
+  const k = th.dataset.sort;
+  state.sort = { key: k, dir: state.sort.key === k ? -state.sort.dir : (k === 'date' || COLS.find(c => c.key === k).num ? -1 : 1) };
+  buildHead(); renderTable();
+});
+$('#tbody').addEventListener('click', e => {
+  if (e.target.closest('a')) return;
+  const tr = e.target.closest('tr[data-i]'); if (tr) selectRow(+tr.dataset.i, true);
+});
+$('#btnAddClient').addEventListener('click', () => openClientDialog(null));
+$('#btnCancelClient').addEventListener('click', () => $('#clientDialog').close());
+$('#clientForm').addEventListener('submit', saveClientFromForm);
+$('#btnDeleteClient').addEventListener('click', () => {
+  const c = state.clients.find(x => x.id === state.editing);
+  if (!c || !confirm(`Supprimer la recherche de ${c.nom} ?`)) return;
+  state.clients = state.clients.filter(x => x.id !== c.id);
+  if (state.clientFilter === c.id) state.clientFilter = null;
+  saveClients(); $('#clientDialog').close(); refreshClients();
+});
+$('#clientGrid').addEventListener('click', e => {
+  const btn = e.target.closest('button[data-act]'); if (!btn) return;
+  const c = state.clients.find(x => x.id === btn.closest('.client').dataset.id); if (!c) return;
+  if (btn.dataset.act === 'modifier') openClientDialog(c);
+  else if (btn.dataset.act === 'chercher') searchForClient(c);
+  else { state.clientFilter = state.clientFilter === c.id ? null : c.id; renderClients(); applyView(true); }
+});
+$('#clientBanner').addEventListener('click', e => { if (e.target.id === 'btnClearClient') { state.clientFilter = null; renderClients(); applyView(true); } });
+$('#btnExportClients').addEventListener('click', () => download(new Blob([JSON.stringify(state.clients, null, 2)], { type: 'application/json' }), `recherches-clients_${iso(new Date())}.json`));
+$('#importClients').addEventListener('change', async e => {
+  const file = e.target.files[0]; if (!file) return;
+  try {
+    const list = JSON.parse(await file.text());
+    if (!Array.isArray(list)) throw new Error();
+    const byId = new Map(state.clients.map(c => [c.id, c]));
+    for (const c of list) if (c && c.id && c.nom) byId.set(c.id, { types: [], etiquettes: [], zone: 'toutes', ...c });
+    state.clients = [...byId.values()];
+    saveClients(); refreshClients();
+    message(`${list.length} fiche(s) client importée(s).`, 'info');
+  } catch (_) { message('Fichier de fiches clients illisible.', 'err'); }
+  e.target.value = '';
+});
+$('#btnCsv').addEventListener('click', exportCsv);
+$('#btnPdf').addEventListener('click', exportPdf);
+
+$('#clientEtq').innerHTML = LETTERS.map(l =>
+  `<label class="etq-check" title="Étiquette ${l}"><input type="checkbox" name="cetq" value="${l}" checked><span style="background:${COLORS[l]};color:${TEXT_ON[l]}">${l}</span></label>`).join('');
+loadClients();
+renderClients();
+init();
+</script>
+</body>
+</html>
