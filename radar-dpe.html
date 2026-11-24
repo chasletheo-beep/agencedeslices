@@ -1,0 +1,1562 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Radar DPE – Agence des Lices</title>
+<meta name="description" content="Outil interne de prospection : carte des passoires thermiques (DPE F/G) avec score de priorité, suivi des contacts, tournées et courriers.">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1b3527">
+<link rel="icon" href="assets/img/favicon.svg" type="image/svg+xml">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@500;600&family=Jost:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.css">
+<style>
+:root{
+  --green-900:#13271c;--green-800:#1b3527;--green-700:#264634;--green-100:#e6ece7;
+  --cream:#f7f3ec;--cream-dark:#ede6d9;--gold:#a8844f;--ink:#1d231f;--muted:#5d665f;
+  --white:#fff;--line:rgba(27,53,39,.14);--danger:#b3261e;
+  --dpe-A:#009c6d;--dpe-B:#52b153;--dpe-C:#a5cc74;--dpe-D:#f4e70f;--dpe-E:#f0b40f;--dpe-F:#eb8235;--dpe-G:#d7221f;
+  --serif:"Cormorant Garamond","Times New Roman",serif;--sans:"Jost","Helvetica Neue",Arial,sans-serif;
+  --r:6px;--shadow:0 10px 30px -12px rgba(19,39,28,.35);--panel-w:420px;--top-h:58px;
+}
+*,*::before,*::after{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;font-family:var(--sans);font-size:15px;line-height:1.5;color:var(--ink);background:var(--cream);overflow:hidden}
+button,input,select,textarea{font:inherit;color:inherit}
+a{color:var(--green-700)}
+h1,h2,h3{font-family:var(--serif);color:var(--green-800);margin:0;line-height:1.15}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+
+/* Top bar */
+.top{height:var(--top-h);display:flex;align-items:center;gap:12px;padding:0 16px;background:var(--green-800);color:var(--cream);position:relative;z-index:1001}
+.brand{display:flex;align-items:baseline;gap:10px;text-decoration:none;color:inherit;min-width:0}
+.brand b{font-family:var(--serif);font-size:1.45rem;font-weight:600;letter-spacing:.02em;white-space:nowrap}
+.brand span{font-size:.72rem;letter-spacing:.18em;text-transform:uppercase;color:#cdbb97;white-space:nowrap}
+.top__spacer{flex:1}
+.top__stat{font-size:.82rem;color:#d9e2db;white-space:nowrap}
+.top__stat strong{color:#fff}
+.top a.back{color:#d9e2db;font-size:.82rem;text-decoration:none;white-space:nowrap}
+.top a.back:hover{color:#fff}
+
+/* Layout */
+.app{display:grid;grid-template-columns:var(--panel-w) 1fr;height:calc(100% - var(--top-h))}
+.panel{background:var(--white);border-right:1px solid var(--line);display:flex;flex-direction:column;min-height:0;z-index:2}
+.map-wrap{position:relative;min-height:0;z-index:0}
+#map{position:absolute;inset:0;background:#dfe5df}
+
+/* Tabs */
+.tabs{display:flex;border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none;flex-shrink:0}
+.tabs::-webkit-scrollbar{display:none}
+.tab{flex:1 0 auto;background:none;border:0;padding:12px 12px 10px;font-size:.82rem;font-weight:500;letter-spacing:.04em;color:var(--muted);cursor:pointer;border-bottom:2px solid transparent;white-space:nowrap}
+.tab[aria-selected=true]{color:var(--green-800);border-bottom-color:var(--gold)}
+.tab .count{display:inline-block;min-width:18px;padding:0 5px;margin-left:4px;border-radius:9px;background:var(--green-100);font-size:.72rem;color:var(--green-800)}
+.views{flex:1;overflow:auto;min-height:0}
+.view{display:none;padding:16px}
+.view.active{display:block}
+.view h2{font-size:1.5rem;margin-bottom:4px}
+.lead{color:var(--muted);font-size:.86rem;margin:0 0 14px}
+
+/* Forms */
+.field{margin-bottom:12px}
+.field>label,.lbl{display:block;font-size:.74rem;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--green-700);margin-bottom:5px}
+.input,select.input,textarea.input{width:100%;padding:9px 11px;border:1px solid var(--line);border-radius:var(--r);background:var(--white);font-size:.92rem}
+.input:focus{outline:2px solid var(--gold);outline-offset:-1px;border-color:transparent}
+textarea.input{resize:vertical;min-height:80px}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.row3{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px}
+.ac{position:relative}
+.ac__list{position:absolute;left:0;right:0;top:100%;margin:2px 0 0;padding:4px 0;list-style:none;background:#fff;border:1px solid var(--line);border-radius:var(--r);box-shadow:var(--shadow);z-index:50;max-height:240px;overflow:auto}
+.ac__list li{padding:7px 11px;cursor:pointer;font-size:.88rem}
+.ac__list li small{color:var(--muted)}
+.ac__list li:hover,.ac__list li.on{background:var(--green-100)}
+.seg{display:flex;flex-wrap:wrap;gap:5px}
+.seg label{cursor:pointer}
+.seg input{position:absolute;opacity:0;pointer-events:none}
+.seg span{display:inline-block;padding:5px 10px;border:1px solid var(--line);border-radius:20px;font-size:.82rem;background:#fff;user-select:none}
+.seg input:checked+span{background:var(--green-800);color:#fff;border-color:var(--green-800)}
+.seg input:focus-visible+span{outline:2px solid var(--gold)}
+.labels{display:flex;gap:4px}
+.labels label{flex:1;cursor:pointer}
+.labels input{position:absolute;opacity:0;pointer-events:none}
+.labels span{display:block;text-align:center;padding:7px 0;border-radius:4px;font-weight:600;color:#fff;opacity:.28;transition:opacity .15s,transform .15s}
+.labels input:checked+span{opacity:1;transform:translateY(-1px);box-shadow:0 3px 8px -3px rgba(0,0,0,.4)}
+.labels input:focus-visible+span{outline:2px solid var(--green-900)}
+.check{display:flex;align-items:center;gap:8px;font-size:.88rem;margin:6px 0;cursor:pointer}
+.check input{accent-color:var(--green-800);width:16px;height:16px}
+
+/* Buttons */
+.btn{display:inline-flex;align-items:center;justify-content:center;gap:6px;padding:9px 14px;border-radius:var(--r);border:1px solid var(--green-800);background:var(--green-800);color:#fff;font-size:.86rem;font-weight:500;letter-spacing:.03em;cursor:pointer;text-decoration:none;white-space:nowrap}
+.btn:hover{background:var(--green-900)}
+.btn:disabled{opacity:.5;cursor:not-allowed}
+.btn--ghost{background:#fff;color:var(--green-800)}
+.btn--ghost:hover{background:var(--green-100)}
+.btn--gold{background:var(--gold);border-color:var(--gold)}
+.btn--gold:hover{background:#8f6f40}
+.btn--sm{padding:5px 9px;font-size:.78rem}
+.btn--danger{background:#fff;color:var(--danger);border-color:rgba(179,38,30,.4)}
+.btn--block{width:100%}
+.btns{display:flex;flex-wrap:wrap;gap:6px;margin:10px 0}
+.icon{width:16px;height:16px;flex-shrink:0}
+
+/* Progress / notes */
+.progress{height:4px;background:var(--green-100);border-radius:2px;overflow:hidden;margin:10px 0 4px;display:none}
+.progress.on{display:block}
+.progress i{display:block;height:100%;width:0;background:var(--gold);transition:width .2s}
+.status{font-size:.84rem;color:var(--muted);min-height:1.2em}
+.status.err{color:var(--danger)}
+.note{background:var(--cream);border-left:3px solid var(--gold);padding:10px 12px;font-size:.82rem;color:var(--muted);border-radius:0 var(--r) var(--r) 0;margin:12px 0}
+.note b{color:var(--ink)}
+.demo-badge{display:none;position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:500;background:var(--gold);color:#fff;padding:5px 12px;border-radius:20px;font-size:.78rem;font-weight:500;box-shadow:var(--shadow)}
+.demo-badge.on{display:block}
+details.adv{border:1px solid var(--line);border-radius:var(--r);padding:8px 12px;margin:10px 0}
+details.adv summary{cursor:pointer;font-size:.84rem;font-weight:500;color:var(--green-700)}
+details.adv[open] summary{margin-bottom:10px}
+
+/* Cards / list */
+.toolbar{display:flex;gap:6px;align-items:center;margin-bottom:10px;flex-wrap:wrap}
+.toolbar .input{flex:1;min-width:120px}
+.list{list-style:none;margin:0;padding:0}
+.card{display:grid;grid-template-columns:38px 1fr auto;gap:10px;align-items:center;padding:10px 8px;border-bottom:1px solid var(--line);cursor:pointer;border-radius:4px}
+.card:hover,.card.hl{background:var(--cream)}
+.card__addr{font-weight:500;font-size:.9rem;line-height:1.3;overflow:hidden;text-overflow:ellipsis;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical}
+.card__meta{font-size:.76rem;color:var(--muted)}
+.card__right{text-align:right}
+.dpe{display:inline-flex;align-items:center;justify-content:center;width:34px;height:34px;border-radius:5px;font-weight:600;color:#fff;font-size:1.05rem}
+.dpe--sm{width:22px;height:22px;font-size:.78rem;border-radius:3px}
+.dpe-A{background:var(--dpe-A)}.dpe-B{background:var(--dpe-B)}.dpe-C{background:var(--dpe-C)}.dpe-D{background:var(--dpe-D);color:#4a4400}.dpe-E{background:var(--dpe-E)}.dpe-F{background:var(--dpe-F)}.dpe-G{background:var(--dpe-G)}
+.score{display:inline-block;min-width:38px;padding:2px 6px;border-radius:12px;font-weight:600;font-size:.8rem;text-align:center;color:#fff}
+.s4{background:#7b1fa2}.s3{background:#c62828}.s2{background:#ef6c00}.s1{background:#9e9d24}.s0{background:#90a4ae}
+.pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:.7rem;font-weight:500;background:var(--green-100);color:var(--green-800);white-space:nowrap}
+.star{color:var(--gold)}
+.more{display:block;margin:12px auto}
+.empty{color:var(--muted);text-align:center;padding:30px 10px;font-size:.9rem}
+
+/* Status colors */
+.st-nouveau{background:#e3e8e4;color:#33443a}.st-a_contacter{background:#e3f2fd;color:#0d47a1}.st-contacte{background:#ede7f6;color:#4527a0}.st-rdv{background:#fff3e0;color:#e65100}.st-estimation{background:#fce4ec;color:#ad1457}.st-mandat{background:#a8844f;color:#fff}.st-perdu{background:#eceff1;color:#78909c}
+
+/* Pipeline */
+.pipe{display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:14px}
+.pipe button{border:1px solid var(--line);background:#fff;border-radius:var(--r);padding:8px 4px;cursor:pointer;text-align:center}
+.pipe button strong{display:block;font-size:1.25rem;font-family:var(--serif);color:var(--green-800)}
+.pipe button small{font-size:.7rem;color:var(--muted)}
+.pipe button[aria-pressed=true]{border-color:var(--gold);box-shadow:inset 0 0 0 1px var(--gold);background:var(--cream)}
+.alert{display:flex;gap:8px;align-items:center;background:#fff3e0;border:1px solid #ffcc80;padding:8px 10px;border-radius:var(--r);font-size:.84rem;margin-bottom:12px}
+
+/* Stats */
+.kpis{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-bottom:16px}
+.kpi{background:var(--cream);border-radius:var(--r);padding:10px 12px}
+.kpi strong{display:block;font-family:var(--serif);font-size:1.6rem;color:var(--green-800);line-height:1.1}
+.kpi small{font-size:.74rem;color:var(--muted)}
+.bars{margin-bottom:16px}
+.bar{display:grid;grid-template-columns:28px 1fr 64px;gap:8px;align-items:center;margin:5px 0;font-size:.82rem}
+.bar__track{height:14px;background:var(--cream);border-radius:3px;overflow:hidden}
+.bar__fill{height:100%;border-radius:3px}
+.bar__val{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums}
+.toplist{list-style:none;margin:0;padding:0;font-size:.84rem}
+.toplist li{display:flex;justify-content:space-between;gap:8px;padding:5px 0;border-bottom:1px dashed var(--line)}
+.toplist li span:last-child{color:var(--muted);white-space:nowrap}
+h3.sub{font-size:1.15rem;margin:16px 0 8px}
+
+/* Tour */
+.tour-item{display:grid;grid-template-columns:26px 1fr auto;gap:8px;align-items:center;padding:8px 4px;border-bottom:1px solid var(--line);font-size:.86rem}
+.tour-num{width:24px;height:24px;border-radius:50%;background:var(--green-800);color:#fff;display:flex;align-items:center;justify-content:center;font-size:.75rem;font-weight:600}
+.tour-item .x{background:none;border:0;color:var(--muted);cursor:pointer;font-size:1.1rem;padding:2px 6px}
+
+/* Map controls */
+.legend{background:rgba(255,255,255,.95);padding:8px 10px;border-radius:var(--r);box-shadow:var(--shadow);font-size:.75rem;line-height:1.6}
+.legend b{display:block;font-size:.7rem;letter-spacing:.08em;text-transform:uppercase;color:var(--green-700);margin-bottom:2px}
+.legend i{display:inline-block;width:11px;height:11px;border-radius:50%;margin-right:5px;vertical-align:-1px}
+.map-tools{position:absolute;top:10px;right:10px;z-index:500;display:flex;flex-direction:column;gap:6px;align-items:flex-end}
+.map-tools .btn{box-shadow:var(--shadow)}
+.cluster{display:flex;align-items:center;justify-content:center;border-radius:50%;color:#fff;font-weight:600;font-size:.8rem;border:3px solid rgba(255,255,255,.85);box-shadow:0 2px 6px rgba(0,0,0,.35)}
+.leaflet-popup-content{font-family:var(--sans);font-size:.85rem;margin:10px 12px}
+.leaflet-container{font-family:var(--sans)}
+.pop b{display:block;font-size:.9rem;margin-bottom:2px}
+.pop .btn{margin-top:6px}
+
+/* Modal (fiche) */
+.modal{position:fixed;inset:0;z-index:2000;display:none;align-items:center;justify-content:center;background:rgba(19,39,28,.55);padding:16px}
+.modal.open{display:flex}
+.modal__box{background:#fff;border-radius:10px;max-width:720px;width:100%;max-height:calc(100% - 32px);overflow:auto;box-shadow:var(--shadow);position:relative}
+.modal__head{display:flex;gap:14px;align-items:flex-start;padding:18px 20px 14px;border-bottom:1px solid var(--line);position:sticky;top:0;background:#fff;z-index:2}
+.modal__head h2{font-size:1.5rem}
+.modal__head .dpe{width:48px;height:48px;font-size:1.5rem}
+.modal__close{margin-left:auto;background:none;border:0;font-size:1.6rem;line-height:1;cursor:pointer;color:var(--muted);padding:2px 6px}
+.modal__body{padding:16px 20px 20px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.dl{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;font-size:.86rem;margin:0}
+.dl dt{color:var(--muted)}
+.dl dd{margin:0;font-weight:500}
+.breakdown{list-style:none;margin:0;padding:0;font-size:.84rem}
+.breakdown li{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dotted var(--line)}
+.breakdown li span:last-child{font-weight:600;color:var(--green-800)}
+.flags{display:flex;flex-direction:column;gap:6px;margin:12px 0}
+.flag{font-size:.82rem;padding:7px 10px;border-radius:var(--r);background:var(--cream);border-left:3px solid var(--gold)}
+.flag--red{border-left-color:var(--dpe-G);background:#fdecea}
+.flag--blue{border-left-color:#1565c0;background:#e8f1fb}
+.links{display:flex;flex-wrap:wrap;gap:6px}
+.scale{display:flex;flex-direction:column;gap:2px;margin:6px 0}
+.scale div{height:16px;border-radius:0 3px 3px 0;color:#fff;font-size:.7rem;font-weight:600;padding-left:6px;line-height:16px;opacity:.35}
+.scale div.cur{opacity:1;outline:2px solid var(--ink);outline-offset:1px}
+.crm{background:var(--cream);border-radius:var(--r);padding:12px;margin-top:14px}
+
+/* Toast */
+.toast{position:fixed;bottom:20px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--green-900);color:#fff;padding:10px 16px;border-radius:var(--r);font-size:.86rem;opacity:0;pointer-events:none;transition:.25s;z-index:3000;box-shadow:var(--shadow);max-width:calc(100% - 32px)}
+.toast.on{opacity:1;transform:translateX(-50%)}
+
+/* Mobile */
+.mobile-switch{display:none}
+@media (max-width:900px){
+  :root{--top-h:52px}
+  .brand span,.top__stat.hide-m{display:none}
+  .app{grid-template-columns:1fr}
+  .panel{position:absolute;inset:var(--top-h) 0 0 0;border-right:0}
+  body.show-map .panel{display:none}
+  .mobile-switch{display:flex;position:fixed;bottom:16px;left:50%;transform:translateX(-50%);z-index:1500;box-shadow:var(--shadow);border-radius:24px;overflow:hidden}
+  .mobile-switch button{border:0;padding:10px 18px;background:#fff;color:var(--green-800);font-weight:500;cursor:pointer}
+  .mobile-switch button.on{background:var(--green-800);color:#fff}
+  .view{padding-bottom:80px}
+  .grid2{grid-template-columns:1fr}
+  .leaflet-bottom{bottom:64px}
+  .demo-badge{top:10px;left:56px;transform:none;font-size:.7rem;white-space:nowrap}
+  .demo-badge .long{display:none}
+  .legend .legend__more{display:none}
+  .map-tools .btn{padding:4px 8px}
+  .modal{padding:0}
+  .modal__box{max-height:100%;height:100%;border-radius:0}
+}
+
+/* Print */
+#print-area{display:none}
+@media print{
+  body{overflow:visible;background:#fff}
+  body>*:not(#print-area){display:none!important}
+  #print-area{display:block}
+  .letter{page-break-after:always;font-family:var(--sans);font-size:11.5pt;line-height:1.55;padding:10mm 8mm;color:#000}
+  .letter:last-child{page-break-after:auto}
+  .letter__head{display:flex;justify-content:space-between;margin-bottom:18mm}
+  .letter__brand b{font-family:var(--serif);font-size:20pt;color:var(--green-800)}
+  .letter__brand div{font-size:9pt;color:#444}
+  .letter__to{margin-left:auto;width:85mm;margin-top:14mm}
+  .letter__date{text-align:right;margin:10mm 0 8mm}
+  .letter p{margin:0 0 3.5mm;white-space:pre-wrap}
+  .print-table{width:100%;border-collapse:collapse;font-size:9.5pt}
+  .print-table th,.print-table td{border:1px solid #999;padding:4px 6px;text-align:left;vertical-align:top}
+  .print-table th{background:#eee}
+  .print-title{font-family:var(--serif);font-size:18pt;margin:0 0 6mm}
+}
+</style>
+</head>
+<body>
+
+<header class="top">
+  <a class="brand" href="index.html" title="Retour au site">
+    <b>Radar DPE</b><span>Agence des Lices</span>
+  </a>
+  <div class="top__spacer"></div>
+  <div class="top__stat" id="top-stat"><strong>0</strong> DPE affichés</div>
+  <div class="top__stat hide-m" id="top-crm"><strong>0</strong> suivis</div>
+  <a class="back hide-m top__stat" href="index.html">← Site</a>
+</header>
+
+<div class="app">
+  <aside class="panel" aria-label="Panneau de prospection">
+    <div class="tabs" role="tablist">
+      <button class="tab" role="tab" data-view="search" aria-selected="true">Recherche</button>
+      <button class="tab" role="tab" data-view="list" aria-selected="false">Résultats<span class="count" id="c-list">0</span></button>
+      <button class="tab" role="tab" data-view="crm" aria-selected="false">Suivi<span class="count" id="c-crm">0</span></button>
+      <button class="tab" role="tab" data-view="tour" aria-selected="false">Tournée<span class="count" id="c-tour">0</span></button>
+      <button class="tab" role="tab" data-view="stats" aria-selected="false">Stats</button>
+      <button class="tab" role="tab" data-view="settings" aria-selected="false">Réglages</button>
+    </div>
+
+    <div class="views">
+      <!-- RECHERCHE -->
+      <section class="view active" id="view-search">
+        <h2>Trouver les passoires</h2>
+        <p class="lead">Données publiques ADEME (DPE logements existants depuis juillet 2021), interrogées en direct.</p>
+
+        <div class="field">
+          <span class="lbl">Zone</span>
+          <div class="seg" id="zone-mode">
+            <label><input type="radio" name="zone" value="commune" checked><span>Commune</span></label>
+            <label><input type="radio" name="zone" value="cp"><span>Code postal</span></label>
+            <label><input type="radio" name="zone" value="rayon"><span>Rayon</span></label>
+            <label><input type="radio" name="zone" value="carte"><span>Zone de la carte</span></label>
+          </div>
+        </div>
+
+        <div class="field ac" id="f-commune">
+          <label for="in-commune">Commune</label>
+          <input class="input" id="in-commune" autocomplete="off" placeholder="Rennes, Cesson-Sévigné…" value="Rennes (35)">
+          <ul class="ac__list" id="ac-commune" hidden></ul>
+        </div>
+        <div class="field" id="f-cp" hidden>
+          <label for="in-cp">Code(s) postal(aux)</label>
+          <input class="input" id="in-cp" inputmode="numeric" placeholder="35000, 35200" value="35000">
+        </div>
+        <div id="f-rayon" hidden>
+          <div class="field ac">
+            <label for="in-addr">Adresse de centre</label>
+            <input class="input" id="in-addr" autocomplete="off" placeholder="1 place du Bas des Lices, Rennes">
+            <ul class="ac__list" id="ac-addr" hidden></ul>
+          </div>
+          <div class="field">
+            <label for="in-radius">Rayon : <output id="out-radius">500 m</output></label>
+            <input type="range" id="in-radius" min="100" max="5000" step="100" value="500" style="width:100%;accent-color:var(--green-800)">
+          </div>
+        </div>
+        <p class="note" id="f-carte" hidden>La recherche portera sur <b>la portion de carte affichée</b>. Zoomez sur le quartier voulu avant de lancer.</p>
+
+        <div class="field">
+          <span class="lbl">Étiquettes énergie</span>
+          <div class="labels" id="in-labels">
+            <label><input type="checkbox" value="A"><span class="dpe-A">A</span></label>
+            <label><input type="checkbox" value="B"><span class="dpe-B">B</span></label>
+            <label><input type="checkbox" value="C"><span class="dpe-C">C</span></label>
+            <label><input type="checkbox" value="D"><span class="dpe-D" style="color:#4a4400">D</span></label>
+            <label><input type="checkbox" value="E"><span class="dpe-E">E</span></label>
+            <label><input type="checkbox" value="F" checked><span class="dpe-F">F</span></label>
+            <label><input type="checkbox" value="G" checked><span class="dpe-G">G</span></label>
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field">
+            <label for="in-type">Type de bien</label>
+            <select class="input" id="in-type">
+              <option value="">Tous</option>
+              <option value="appartement">Appartement</option>
+              <option value="maison">Maison</option>
+              <option value="immeuble">Immeuble</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="in-period">DPE réalisé depuis</label>
+            <select class="input" id="in-period">
+              <option value="90">3 mois</option>
+              <option value="180">6 mois</option>
+              <option value="365">12 mois</option>
+              <option value="730" selected>24 mois</option>
+              <option value="0">Toujours</option>
+            </select>
+          </div>
+        </div>
+
+        <details class="adv">
+          <summary>Filtres avancés</summary>
+          <div class="row">
+            <div class="field"><label for="in-smin">Surface min (m²)</label><input class="input" id="in-smin" type="number" min="0" placeholder="0"></div>
+            <div class="field"><label for="in-smax">Surface max (m²)</label><input class="input" id="in-smax" type="number" min="0" placeholder="∞"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="in-ymin">Construit après</label><input class="input" id="in-ymin" type="number" placeholder="1800"></div>
+            <div class="field"><label for="in-ymax">Construit avant</label><input class="input" id="in-ymax" type="number" placeholder="2025"></div>
+          </div>
+          <div class="field">
+            <label for="in-energy">Énergie de chauffage</label>
+            <select class="input" id="in-energy">
+              <option value="">Toutes</option>
+              <option value="electri">Électricité</option>
+              <option value="gaz">Gaz</option>
+              <option value="fioul">Fioul</option>
+              <option value="bois">Bois</option>
+              <option value="reseau">Réseau de chaleur</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="in-minscore">Score de priorité minimum : <output id="out-minscore">0</output></label>
+            <input type="range" id="in-minscore" min="0" max="90" step="5" value="0" style="width:100%;accent-color:var(--green-800)">
+          </div>
+          <label class="check"><input type="checkbox" id="in-hidelost" checked> Masquer les biens « pas intéressés »</label>
+          <label class="check"><input type="checkbox" id="in-onlycopro"> Seulement les adresses avec plusieurs DPE (copropriétés)</label>
+        </details>
+
+        <div class="btns">
+          <button class="btn btn--block" id="btn-search">
+            <svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+            Lancer le radar
+          </button>
+        </div>
+        <div class="btns" style="margin-top:0">
+          <button class="btn btn--ghost btn--sm" id="btn-cancel" hidden>Annuler</button>
+          <button class="btn btn--ghost btn--sm" id="btn-demo">Charger des données de démonstration</button>
+        </div>
+        <div class="progress" id="progress"><i></i></div>
+        <div class="status" id="status" role="status" aria-live="polite"></div>
+
+        <div class="note">
+          <b>Comment est calculé le score ?</b> Étiquette (jusqu'à 40 pts), échéance d'interdiction de louer (15), fraîcheur du DPE (25 : un DPE récent signale souvent un projet de vente ou de location), surface (10), maison soumise à l'audit énergétique (5), chauffage électrique reclassable (3), adresse multi-DPE (2).
+        </div>
+        <div class="note">
+          <b>Prospection & RGPD :</b> les DPE sont des données publiques sans nom de propriétaire. Le courrier adressé « au propriétaire » est autorisé. Respectez Bloctel pour le téléphone et proposez toujours un moyen de ne plus être contacté.
+        </div>
+      </section>
+
+      <!-- RESULTATS -->
+      <section class="view" id="view-list">
+        <div class="toolbar">
+          <input class="input" id="list-q" type="search" placeholder="Filtrer : rue, n° DPE, commune…">
+          <select class="input" id="list-sort" style="flex:0 0 auto;width:auto">
+            <option value="score">Priorité</option>
+            <option value="date">Plus récents</option>
+            <option value="surface">Surface</option>
+            <option value="label">Étiquette</option>
+            <option value="conso">Consommation</option>
+          </select>
+        </div>
+        <div class="toolbar">
+          <button class="btn btn--ghost btn--sm" id="btn-fit">Cadrer la carte</button>
+          <button class="btn btn--ghost btn--sm" id="btn-csv">Export CSV</button>
+          <button class="btn btn--ghost btn--sm" id="btn-print-list">Imprimer</button>
+          <button class="btn btn--ghost btn--sm" id="btn-tour-top">+ Top 10 en tournée</button>
+        </div>
+        <ul class="list" id="list"></ul>
+        <button class="btn btn--ghost btn--sm more" id="list-more" hidden>Afficher plus</button>
+      </section>
+
+      <!-- SUIVI -->
+      <section class="view" id="view-crm">
+        <h2>Suivi de prospection</h2>
+        <p class="lead">Statuts, notes et relances sont enregistrés dans ce navigateur. Pensez à faire des sauvegardes (Réglages).</p>
+        <div id="crm-alert"></div>
+        <div class="pipe" id="pipe"></div>
+        <div class="toolbar">
+          <input class="input" id="crm-q" type="search" placeholder="Rechercher dans le suivi…">
+          <label class="check" style="margin:0"><input type="checkbox" id="crm-fav"> ★ Favoris</label>
+        </div>
+        <ul class="list" id="crm-list"></ul>
+        <div class="btns">
+          <button class="btn btn--ghost btn--sm" id="btn-crm-csv">Export CSV du suivi</button>
+          <button class="btn btn--ghost btn--sm" id="btn-crm-letters">Courriers « À contacter »</button>
+          <button class="btn btn--ghost btn--sm" id="btn-crm-show">Afficher le suivi sur la carte</button>
+        </div>
+      </section>
+
+      <!-- TOURNEE -->
+      <section class="view" id="view-tour">
+        <h2>Tournée terrain</h2>
+        <p class="lead">Ajoutez des biens depuis leur fiche ou la liste, puis optimisez l'ordre de passage depuis l'agence (boîtage, repérage).</p>
+        <div class="btns">
+          <button class="btn btn--sm" id="btn-tour-opt">Optimiser l'itinéraire</button>
+          <button class="btn btn--ghost btn--sm" id="btn-tour-gmaps">Ouvrir dans Google Maps</button>
+          <button class="btn btn--ghost btn--sm" id="btn-tour-print">Feuille de route</button>
+          <button class="btn btn--ghost btn--sm" id="btn-tour-letters">Courriers</button>
+          <button class="btn btn--danger btn--sm" id="btn-tour-clear">Vider</button>
+        </div>
+        <div class="status" id="tour-info"></div>
+        <div id="tour-list"></div>
+      </section>
+
+      <!-- STATS -->
+      <section class="view" id="view-stats">
+        <h2>Analyse du secteur</h2>
+        <p class="lead">Calculée sur les résultats actuellement chargés.</p>
+        <div id="stats"></div>
+      </section>
+
+      <!-- REGLAGES -->
+      <section class="view" id="view-settings">
+        <h2>Réglages</h2>
+        <p class="lead">Utilisés pour les estimations, les courriers et la tournée.</p>
+        <form id="settings-form">
+          <div class="field"><label for="s-agence">Agence</label><input class="input" id="s-agence" name="agence"></div>
+          <div class="field"><label for="s-adresse">Adresse de l'agence</label><input class="input" id="s-adresse" name="adresse"></div>
+          <div class="row">
+            <div class="field"><label for="s-tel">Téléphone</label><input class="input" id="s-tel" name="tel"></div>
+            <div class="field"><label for="s-email">E-mail</label><input class="input" id="s-email" name="email"></div>
+          </div>
+          <div class="field"><label for="s-sign">Signataire</label><input class="input" id="s-sign" name="signataire"></div>
+          <div class="row">
+            <div class="field"><label for="s-prix">Prix moyen €/m²</label><input class="input" id="s-prix" name="prixM2" type="number" step="50"></div>
+            <div class="field"><label for="s-hono">Honoraires (%)</label><input class="input" id="s-hono" name="honoraires" type="number" step="0.1"></div>
+          </div>
+          <div class="row">
+            <div class="field"><label for="s-lat">Départ tournée – latitude</label><input class="input" id="s-lat" name="lat" type="number" step="0.0001"></div>
+            <div class="field"><label for="s-lon">Départ tournée – longitude</label><input class="input" id="s-lon" name="lon" type="number" step="0.0001"></div>
+          </div>
+          <div class="field">
+            <label for="s-max">Nombre maximum de DPE chargés</label>
+            <select class="input" id="s-max" name="maxResults">
+              <option value="1000">1 000</option><option value="3000">3 000</option><option value="5000">5 000</option><option value="10000">10 000</option>
+            </select>
+          </div>
+          <div class="field">
+            <label for="s-letter">Modèle de courrier</label>
+            <textarea class="input" id="s-letter" name="letter" rows="14"></textarea>
+            <small style="color:var(--muted);font-size:.76rem">Champs : {adresse} {complement} {cp} {commune} {etiquette} {surface} {type} {date_dpe} {echeance} {agence} {adresse_agence} {tel} {email} {signataire}</small>
+          </div>
+          <div class="btns">
+            <button class="btn" type="submit">Enregistrer</button>
+            <button class="btn btn--ghost" type="button" id="btn-letter-reset">Modèle par défaut</button>
+          </div>
+        </form>
+        <h3 class="sub">Sauvegarde</h3>
+        <div class="btns">
+          <button class="btn btn--ghost btn--sm" id="btn-backup">Télécharger une sauvegarde</button>
+          <label class="btn btn--ghost btn--sm" for="in-restore">Restaurer…</label>
+          <input type="file" id="in-restore" accept="application/json" hidden>
+          <button class="btn btn--danger btn--sm" id="btn-wipe">Tout effacer</button>
+        </div>
+      </section>
+    </div>
+  </aside>
+
+  <div class="map-wrap">
+    <div id="map" role="application" aria-label="Carte des DPE"></div>
+    <div class="demo-badge" id="demo-badge">Démo<span class="long"> : données fictives</span></div>
+    <div class="map-tools">
+      <button class="btn btn--ghost btn--sm" id="btn-heat" aria-pressed="false">Carte de chaleur</button>
+      <button class="btn btn--gold btn--sm" id="btn-here">Chercher ici</button>
+    </div>
+  </div>
+</div>
+
+<div class="mobile-switch" role="group" aria-label="Affichage">
+  <button id="m-panel" class="on">Panneau</button>
+  <button id="m-map">Carte</button>
+</div>
+
+<div class="modal" id="modal" role="dialog" aria-modal="true" aria-labelledby="fiche-title">
+  <div class="modal__box" id="modal-box"></div>
+</div>
+
+<div class="toast" id="toast" role="status"></div>
+<div id="print-area"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/leaflet.markercluster.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/leaflet.heat/0.2.0/leaflet-heat.js"></script>
+<script>
+(() => {
+'use strict';
+
+/* ================================================================
+   Constantes
+   ================================================================ */
+const API = 'https://data.ademe.fr/data-fair/api/v1/datasets/dpe03existant/lines';
+const GEO_COMMUNES = 'https://geo.api.gouv.fr/communes';
+const GEOCODE = ['https://data.geopf.fr/geocodage/search', 'https://api-adresse.data.gouv.fr/search/'];
+const LABELS = ['A','B','C','D','E','F','G'];
+const COLORS = {A:'#009c6d',B:'#52b153',C:'#a5cc74',D:'#f4e70f',E:'#f0b40f',F:'#eb8235',G:'#d7221f'};
+const AGENCY = {lat:48.1117, lon:-1.6855};
+const STATUSES = [
+  ['nouveau','Nouveau'],['a_contacter','À contacter'],['contacte','Contacté'],
+  ['rdv','RDV'],['estimation','Estimation'],['mandat','Mandat'],['perdu','Pas intéressé']
+];
+const STATUS_LABEL = Object.fromEntries(STATUSES);
+const STATUS_RING = {nouveau:'#ffffff',a_contacter:'#1565c0',contacte:'#5e35b1',rdv:'#ef6c00',estimation:'#ad1457',mandat:'#a8844f',perdu:'#90a4ae'};
+const BAN = { // loi Climat & Résilience – interdiction de mise en location (nouveaux baux / renouvellements)
+  G:{year:2025, txt:'interdit à la location depuis le 1er janvier 2025'},
+  F:{year:2028, txt:'interdit à la location à partir du 1er janvier 2028'},
+  E:{year:2034, txt:'interdit à la location à partir du 1er janvier 2034'}
+};
+const DECOTE = {G:.15,F:.10,E:.05,D:.02}; // décote « valeur verte » indicative
+const TRAVAUX = {G:[350,600],F:[250,450],E:[150,300],D:[80,180]}; // €/m² pour viser C/D
+const ELEC_COEF_DATE = '2026-01-01'; // coefficient électricité 2,3 → 1,9
+const LS = {crm:'radarDpe.crm.v1', tour:'radarDpe.tour.v1', settings:'radarDpe.settings.v1', search:'radarDpe.search.v1'};
+
+const DEFAULT_LETTER =
+`Objet : votre logement {adresse} – performance énergétique
+
+Madame, Monsieur,
+
+Votre logement situé {adresse}{complement}, {cp} {commune}, a fait l'objet le {date_dpe} d'un diagnostic de performance énergétique classé {etiquette}. {echeance}
+
+Que vous envisagiez de vendre, de louer ou de rénover, l'{agence} vous accompagne :
+– une estimation gratuite qui tient compte de la performance énergétique de votre bien ;
+– des conseils sur les travaux et les aides (MaPrimeRénov', éco-prêt à taux zéro) ;
+– la mise en relation avec des artisans RGE et des diagnostiqueurs de confiance.
+
+Nous serions ravis d'en parler avec vous, sans engagement, à l'agence ou chez vous.
+
+Veuillez agréer, Madame, Monsieur, l'expression de nos salutations distinguées.
+
+{signataire}
+{agence} – {adresse_agence}
+{tel} – {email}
+
+Si vous ne souhaitez plus recevoir de courrier de notre part, il vous suffit de nous l'indiquer.`;
+
+const DEFAULT_SETTINGS = {
+  agence:'Agence des Lices – Chasle Immobilier', adresse:'1 place du Bas des Lices, 35000 Rennes',
+  tel:'02 99 31 59 31', email:'contact@agencedeslices.fr', signataire:'L\'équipe de l\'Agence des Lices',
+  prixM2:4200, honoraires:5, lat:AGENCY.lat, lon:AGENCY.lon, maxResults:3000, letter:DEFAULT_LETTER
+};
+
+/* ================================================================
+   Utilitaires
+   ================================================================ */
+const $ = (s, el=document) => el.querySelector(s);
+const $$ = (s, el=document) => [...el.querySelectorAll(s)];
+const esc = v => String(v ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const fmt = new Intl.NumberFormat('fr-FR');
+const eur = v => v == null || isNaN(v) ? '—' : fmt.format(Math.round(v/1000)*1000) + ' €';
+const num = v => v == null || isNaN(v) ? '—' : fmt.format(Math.round(v));
+const fdate = d => d ? new Date(d).toLocaleDateString('fr-FR') : '—';
+const daysSince = d => d ? Math.floor((Date.now() - new Date(d).getTime()) / 864e5) : Infinity;
+const today = () => new Date().toISOString().slice(0,10);
+const debounce = (fn, ms=250) => { let t; return (...a) => { clearTimeout(t); t = setTimeout(() => fn(...a), ms); }; };
+const store = {
+  get(k, def){ try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch { return def; } },
+  set(k, v){ try { localStorage.setItem(k, JSON.stringify(v)); } catch {} }
+};
+function toast(msg){ const t = $('#toast'); t.textContent = msg; t.classList.add('on'); clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.remove('on'), 2600); }
+function haversine(a, b){
+  const R = 6371e3, r = Math.PI/180, dLat = (b.lat-a.lat)*r, dLon = (b.lon-a.lon)*r;
+  const x = Math.sin(dLat/2)**2 + Math.cos(a.lat*r)*Math.cos(b.lat*r)*Math.sin(dLon/2)**2;
+  return 2*R*Math.asin(Math.sqrt(x));
+}
+function download(name, content, type){
+  const blob = new Blob([content], {type});
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+  document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+function csv(rows){
+  const cell = v => { const s = String(v ?? ''); return /[;"\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  return '﻿' + rows.map(r => r.map(cell).join(';')).join('\r\n');
+}
+const tier = s => s >= 80 ? 4 : s >= 65 ? 3 : s >= 50 ? 2 : s >= 30 ? 1 : 0;
+const TIER_NAME = ['Faible','Moyenne','Haute','Très haute','Urgente'];
+
+/* ================================================================
+   État
+   ================================================================ */
+let settings = {...DEFAULT_SETTINGS, ...store.get(LS.settings, {})};
+let crm = store.get(LS.crm, {});            // id → {status, note, relance, fav, updated, rec}
+let tour = store.get(LS.tour, []);          // [id]
+let records = [];                           // résultats chargés (normalisés)
+let byId = new Map();
+let filtered = [];
+let addrCount = new Map();
+let isDemo = false;
+let listLimit = 150;
+let abortCtl = null;
+let center = null;                          // centre du rayon {lat, lon, label}
+let commune = {code:'35238', nom:'Rennes'};
+let crmFilter = '';
+let heatOn = false;
+
+const saveCrm = () => { store.set(LS.crm, crm); updateCounts(); };
+const saveTour = () => { store.set(LS.tour, tour); updateCounts(); };
+
+/* ================================================================
+   Normalisation & score
+   ================================================================ */
+const pick = (r, ...keys) => { for (const k of keys) if (r[k] !== undefined && r[k] !== null && r[k] !== '') return r[k]; return null; };
+function normalize(r){
+  let lat = null, lon = null;
+  const gp = pick(r, '_geopoint', 'geopoint');
+  if (typeof gp === 'string' && gp.includes(',')) { [lat, lon] = gp.split(',').map(Number); }
+  else if (gp && typeof gp === 'object') { lat = +gp.lat; lon = +gp.lon; }
+  const label = String(pick(r, 'etiquette_dpe', 'Etiquette_DPE') || '').toUpperCase();
+  const rec = {
+    id: String(pick(r, 'numero_dpe', 'N°DPE', '_id') || Math.random().toString(36).slice(2)),
+    num: pick(r, 'numero_dpe', 'N°DPE'),
+    date: pick(r, 'date_etablissement_dpe', 'date_visite_diagnostiqueur'),
+    fin: pick(r, 'date_fin_validite_dpe'),
+    label, ges: String(pick(r, 'etiquette_ges') || '').toUpperCase(),
+    adresse: pick(r, 'adresse_ban', 'adresse_brut', 'adresse_complete') || 'Adresse inconnue',
+    complement: [pick(r, 'nom_residence'), pick(r, 'complement_adresse_batiment'), pick(r, 'complement_adresse_logement')].filter(Boolean).join(', '),
+    cp: pick(r, 'code_postal_ban', 'code_postal_brut'),
+    commune: pick(r, 'nom_commune_ban', 'nom_commune_brut'),
+    insee: pick(r, 'code_insee_ban'),
+    type: String(pick(r, 'type_batiment') || '').toLowerCase(),
+    surface: +pick(r, 'surface_habitable_logement', 'surface_habitable_immeuble') || null,
+    annee: +pick(r, 'annee_construction') || null,
+    periode: pick(r, 'periode_construction'),
+    etage: pick(r, 'numero_etage_appartement'),
+    conso: +pick(r, 'conso_5_usages_par_m2_ep', 'conso_5_usages_m2_ep') || null,
+    emission: +pick(r, 'emission_ges_5_usages_par_m2', 'emission_ges_5_usages_m2') || null,
+    energie: pick(r, 'type_energie_principale_chauffage', 'type_energie_n1') || '',
+    cout: +pick(r, 'cout_total_5_usages') || null,
+    lat, lon
+  };
+  return rec;
+}
+function scoreOf(r){
+  const parts = [];
+  const add = (l, p) => { if (p) parts.push([l, p]); };
+  add('Étiquette ' + r.label, {G:40,F:32,E:18,D:6}[r.label] || 0);
+  add('Échéance location', {G:15,F:12,E:5}[r.label] || 0);
+  const d = daysSince(r.date);
+  add('DPE récent (' + (d === Infinity ? '?' : d + ' j') + ')', d <= 90 ? 25 : d <= 180 ? 18 : d <= 365 ? 10 : d <= 730 ? 4 : 0);
+  if (r.surface) add('Surface ' + Math.round(r.surface) + ' m²', r.surface >= 100 ? 10 : r.surface >= 70 ? 7 : r.surface >= 40 ? 4 : 1);
+  if (r.type === 'maison' && 'EFG'.includes(r.label) && r.label) add('Audit énergétique obligatoire', 5);
+  if (isElecReclass(r)) add('Reclassement électrique possible', 3);
+  if ((addrCount.get(addrKey(r)) || 0) > 1) add('Plusieurs DPE à l\'adresse', 2);
+  const score = Math.min(100, parts.reduce((s, p) => s + p[1], 0));
+  return {score, parts};
+}
+const addrKey = r => (r.adresse + '|' + (r.cp || '')).toLowerCase();
+const isElec = r => /lectri/i.test(r.energie);
+const isElecReclass = r => isElec(r) && 'EFG'.includes(r.label) && r.label && r.date && r.date < ELEC_COEF_DATE;
+
+function enrich(list){
+  addrCount = new Map();
+  for (const r of list) addrCount.set(addrKey(r), (addrCount.get(addrKey(r)) || 0) + 1);
+  for (const r of list) { const s = scoreOf(r); r.score = s.score; r.parts = s.parts; }
+  return list;
+}
+function estimate(r){
+  if (!r.surface) return null;
+  const brut = r.surface * settings.prixM2;
+  const valeur = brut * (1 - (DECOTE[r.label] || 0));
+  const t = TRAVAUX[r.label];
+  return {
+    valeur, decote: brut - valeur,
+    honoraires: valeur * settings.honoraires / 100,
+    travaux: t ? [t[0]*r.surface, t[1]*r.surface] : null
+  };
+}
+
+/* ================================================================
+   Carte
+   ================================================================ */
+const map = L.map('map', {zoomControl:true, preferCanvas:true}).setView([AGENCY.lat, AGENCY.lon], 14);
+const base = {
+  'Plan clair': L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {maxZoom:20, subdomains:'abcd', attribution:'© OpenStreetMap, © CARTO'}),
+  'Plan OSM': L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {maxZoom:19, attribution:'© OpenStreetMap'}),
+  'Photo aérienne': L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {maxZoom:19, attribution:'© Esri'})
+};
+const overlays = {
+  'Cadastre (IGN)': L.tileLayer('https://data.geopf.fr/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=CADASTRALPARCELS.PARCELLAIRE_EXPRESS&STYLE=PCI%20vecteur&TILEMATRIXSET=PM&FORMAT=image/png&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}', {maxZoom:20, opacity:.7, attribution:'© IGN'})
+};
+base['Plan clair'].addTo(map);
+L.control.layers(base, overlays, {position:'bottomright'}).addTo(map);
+L.control.scale({imperial:false}).addTo(map);
+
+const clusters = L.markerClusterGroup({
+  chunkedLoading:true, showCoverageOnHover:false, maxClusterRadius:45, spiderfyOnMaxZoom:true,
+  disableClusteringAtZoom:18,
+  iconCreateFunction(c){
+    const ms = c.getAllChildMarkers();
+    let worst = 0, sum = 0;
+    for (const m of ms) { const i = LABELS.indexOf(m.options.label); if (i > worst) worst = i; sum += m.options.score || 0; }
+    const avg = sum / ms.length, n = ms.length;
+    const size = n < 10 ? 32 : n < 100 ? 40 : n < 1000 ? 48 : 56;
+    const color = avg >= 65 ? '#7b1fa2' : COLORS[LABELS[worst]] || '#264634';
+    return L.divIcon({html:`<div class="cluster" style="width:${size}px;height:${size}px;background:${color}" title="Score moyen ${Math.round(avg)}">${n}</div>`, className:'', iconSize:[size,size]});
+  }
+}).addTo(map);
+let heat = null;
+const centerLayer = L.layerGroup().addTo(map);
+const tourLayer = L.layerGroup().addTo(map);
+const markers = new Map();
+
+const legend = L.control({position:'bottomleft'});
+legend.onAdd = () => {
+  const d = L.DomUtil.create('div', 'legend');
+  d.innerHTML = '<b>Étiquette</b>' + ['G','F','E','D','C'].map(l => `<span style="margin-right:6px"><i style="background:${COLORS[l]}"></i>${l}</span>`).join('') +
+    '<div class="legend__more"><b style="margin-top:6px">Contour = statut</b>' + ['a_contacter','rdv','mandat'].map(s => `<span style="margin-right:6px"><i style="background:#fff;border:3px solid ${STATUS_RING[s]}"></i>${STATUS_LABEL[s]}</span>`).join('') +
+    '<div style="color:#5d665f;margin-top:2px">Taille = score de priorité</div></div>';
+  L.DomEvent.disableClickPropagation(d);
+  return d;
+};
+legend.addTo(map);
+
+function markerFor(r){
+  const c = crm[r.id];
+  const st = c?.status;
+  return L.circleMarker([r.lat, r.lon], {
+    radius: 5 + Math.round((r.score || 0) / 14),
+    fillColor: COLORS[r.label] || '#999', fillOpacity: .9,
+    color: st && st !== 'nouveau' ? STATUS_RING[st] : '#ffffff',
+    weight: st && st !== 'nouveau' ? 3 : 1.5,
+    label: r.label, score: r.score, rid: r.id
+  }).on('click', () => openFiche(r.id))
+    .bindTooltip(`<b>${esc(r.adresse)}</b><br>DPE ${esc(r.label)} · ${r.surface ? Math.round(r.surface) + ' m²' : '?'} · score ${r.score}`, {direction:'top', offset:[0,-4]});
+}
+function renderMap(){
+  clusters.clearLayers(); markers.clear();
+  const ms = [];
+  for (const r of filtered) {
+    if (r.lat == null || isNaN(r.lat)) continue;
+    const m = markerFor(r); markers.set(r.id, m); ms.push(m);
+  }
+  clusters.addLayers(ms);
+  if (heat) { map.removeLayer(heat); heat = null; }
+  if (heatOn && L.heatLayer) {
+    heat = L.heatLayer(filtered.filter(r => r.lat != null).map(r => [r.lat, r.lon, (r.score || 10) / 100]), {radius:22, blur:18, maxZoom:17}).addTo(map);
+  }
+}
+function refreshMarker(id){
+  const r = byId.get(id), old = markers.get(id);
+  if (!r || !old) return;
+  clusters.removeLayer(old);
+  const m = markerFor(r); markers.set(id, m); clusters.addLayer(m);
+}
+function fitResults(){
+  const pts = filtered.filter(r => r.lat != null).map(r => [r.lat, r.lon]);
+  if (pts.length) map.fitBounds(pts, {padding:[30,30], maxZoom:17});
+}
+function focusRecord(r){
+  if (r.lat == null) return;
+  showMapOnMobile();
+  const m = markers.get(r.id);
+  if (m) clusters.zoomToShowLayer(m, () => { m.openTooltip(); });
+  else map.setView([r.lat, r.lon], 18);
+}
+
+/* ================================================================
+   Recherche – interface
+   ================================================================ */
+const zoneMode = () => $('input[name=zone]:checked').value;
+$$('input[name=zone]').forEach(i => i.addEventListener('change', () => {
+  const z = zoneMode();
+  $('#f-commune').hidden = z !== 'commune';
+  $('#f-cp').hidden = z !== 'cp';
+  $('#f-rayon').hidden = z !== 'rayon';
+  $('#f-carte').hidden = z !== 'carte';
+  if (z === 'rayon') drawCenter();
+}));
+$('#in-radius').addEventListener('input', e => { $('#out-radius').textContent = e.target.value >= 1000 ? (e.target.value/1000).toLocaleString('fr-FR') + ' km' : e.target.value + ' m'; drawCenter(); });
+$('#in-minscore').addEventListener('input', e => { $('#out-minscore').textContent = e.target.value; applyFilters(); });
+['#in-hidelost','#in-onlycopro'].forEach(s => $(s).addEventListener('change', applyFilters));
+
+function autocomplete(input, list, fetcher, onPick){
+  let items = [], idx = -1;
+  const close = () => { list.hidden = true; idx = -1; };
+  const render = () => {
+    list.innerHTML = items.map((it, i) => `<li data-i="${i}" class="${i === idx ? 'on' : ''}">${it.html}</li>`).join('');
+    list.hidden = !items.length;
+  };
+  input.addEventListener('input', debounce(async () => {
+    const q = input.value.trim();
+    if (q.length < 2) { items = []; render(); return; }
+    try { items = await fetcher(q); } catch { items = []; }
+    idx = -1; render();
+  }, 220));
+  input.addEventListener('keydown', e => {
+    if (list.hidden) return;
+    if (e.key === 'ArrowDown') { idx = Math.min(items.length - 1, idx + 1); render(); e.preventDefault(); }
+    else if (e.key === 'ArrowUp') { idx = Math.max(0, idx - 1); render(); e.preventDefault(); }
+    else if (e.key === 'Enter' && idx >= 0) { e.preventDefault(); onPick(items[idx]); close(); }
+    else if (e.key === 'Escape') close();
+  });
+  list.addEventListener('mousedown', e => { const li = e.target.closest('li'); if (li) { onPick(items[+li.dataset.i]); close(); } });
+  input.addEventListener('blur', () => setTimeout(close, 150));
+}
+autocomplete($('#in-commune'), $('#ac-commune'), async q => {
+  const isCode = /^\d/.test(q);
+  const url = `${GEO_COMMUNES}?${isCode ? 'codePostal' : 'nom'}=${encodeURIComponent(q)}&fields=code,nom,codesPostaux,centre,population&boost=population&limit=8`;
+  const res = await (await fetch(url)).json();
+  return res.map(c => ({...c, html:`${esc(c.nom)} <small>${esc(c.codesPostaux?.[0] || '')} · ${c.population ? fmt.format(c.population) + ' hab.' : ''}</small>`}));
+}, c => {
+  commune = {code:c.code, nom:c.nom};
+  $('#in-commune').value = `${c.nom} (${c.code.slice(0,2)})`;
+  if (c.centre) map.setView([c.centre.coordinates[1], c.centre.coordinates[0]], 13);
+});
+async function geocode(q){
+  for (const base of GEOCODE) {
+    try {
+      const res = await fetch(`${base}?q=${encodeURIComponent(q)}&limit=6`);
+      if (!res.ok) continue;
+      const j = await res.json();
+      return (j.features || []).map(f => ({lat:f.geometry.coordinates[1], lon:f.geometry.coordinates[0], label:f.properties.label, html:esc(f.properties.label)}));
+    } catch {}
+  }
+  return [];
+}
+autocomplete($('#in-addr'), $('#ac-addr'), geocode, a => {
+  center = a; $('#in-addr').value = a.label; drawCenter(); map.setView([a.lat, a.lon], 16);
+});
+function drawCenter(){
+  centerLayer.clearLayers();
+  if (zoneMode() !== 'rayon') return;
+  const c = center || {lat: map.getCenter().lat, lon: map.getCenter().lng};
+  L.circle([c.lat, c.lon], {radius:+$('#in-radius').value, color:'#a8844f', weight:2, fillOpacity:.05, dashArray:'6 6'}).addTo(centerLayer);
+  L.circleMarker([c.lat, c.lon], {radius:5, color:'#a8844f', fillColor:'#a8844f', fillOpacity:1}).addTo(centerLayer);
+}
+map.on('contextmenu', e => {
+  center = {lat:e.latlng.lat, lon:e.latlng.lng, label:'Point choisi sur la carte'};
+  $('input[name=zone][value=rayon]').checked = true;
+  $('input[name=zone][value=rayon]').dispatchEvent(new Event('change'));
+  $('#in-addr').value = center.label;
+  toast('Centre du rayon défini (clic droit / appui long)');
+});
+
+function getCriteria(){
+  return {
+    zone: zoneMode(),
+    labels: $$('#in-labels input:checked').map(i => i.value),
+    type: $('#in-type').value,
+    period: +$('#in-period').value,
+    smin: +$('#in-smin').value || null, smax: +$('#in-smax').value || null,
+    ymin: +$('#in-ymin').value || null, ymax: +$('#in-ymax').value || null,
+    energy: $('#in-energy').value,
+    cp: $('#in-cp').value, radius: +$('#in-radius').value
+  };
+}
+function saveSearch(){
+  const c = getCriteria();
+  store.set(LS.search, {...c, commune, center, communeTxt: $('#in-commune').value, addrTxt: $('#in-addr').value});
+}
+function restoreSearch(){
+  const s = store.get(LS.search, null);
+  if (!s) return;
+  const set = (sel, v) => { if (v != null && $(sel)) $(sel).value = v; };
+  if (s.zone) { $(`input[name=zone][value=${s.zone}]`).checked = true; $(`input[name=zone][value=${s.zone}]`).dispatchEvent(new Event('change')); }
+  if (s.labels) $$('#in-labels input').forEach(i => i.checked = s.labels.includes(i.value));
+  set('#in-type', s.type); set('#in-period', s.period); set('#in-smin', s.smin); set('#in-smax', s.smax);
+  set('#in-ymin', s.ymin); set('#in-ymax', s.ymax); set('#in-energy', s.energy); set('#in-cp', s.cp);
+  if (s.radius) { set('#in-radius', s.radius); $('#in-radius').dispatchEvent(new Event('input')); }
+  if (s.commune) commune = s.commune;
+  if (s.communeTxt) $('#in-commune').value = s.communeTxt;
+  if (s.center) { center = s.center; $('#in-addr').value = s.addrTxt || ''; drawCenter(); }
+}
+
+/* ================================================================
+   Recherche – API ADEME
+   ================================================================ */
+function buildQuery(c){
+  const q = [];
+  let bbox = null;
+  if (c.zone === 'commune') q.push(`code_insee_ban:"${commune.code}"`);
+  else if (c.zone === 'cp') {
+    const cps = c.cp.split(/[\s,;]+/).filter(x => /^\d{5}$/.test(x));
+    if (!cps.length) throw new Error('Indiquez au moins un code postal à 5 chiffres.');
+    q.push('code_postal_ban:(' + cps.map(x => `"${x}"`).join(' OR ') + ')');
+  } else if (c.zone === 'carte') {
+    const b = map.getBounds();
+    bbox = [b.getWest(), b.getSouth(), b.getEast(), b.getNorth()].map(v => v.toFixed(5)).join(',');
+  } else if (c.zone === 'rayon') {
+    const ctr = center || {lat: map.getCenter().lat, lon: map.getCenter().lng};
+    const dLat = c.radius / 111320, dLon = c.radius / (111320 * Math.cos(ctr.lat * Math.PI / 180));
+    bbox = [ctr.lon - dLon, ctr.lat - dLat, ctr.lon + dLon, ctr.lat + dLat].map(v => v.toFixed(5)).join(',');
+  }
+  if (c.labels.length && c.labels.length < 7) q.push('etiquette_dpe:(' + c.labels.join(' OR ') + ')');
+  if (c.type) q.push(`type_batiment:"${c.type}"`);
+  if (c.period) { const d = new Date(Date.now() - c.period * 864e5).toISOString().slice(0,10); q.push(`date_etablissement_dpe:[${d} TO *]`); }
+  if (c.smin || c.smax) q.push(`surface_habitable_logement:[${c.smin || 0} TO ${c.smax || '*'}]`);
+  return {qs: q.join(' AND '), bbox};
+}
+function clientFilter(r, c){
+  if (c.labels.length && !c.labels.includes(r.label)) return false;
+  if (c.type && r.type && r.type !== c.type) return false;
+  if (c.period && daysSince(r.date) > c.period) return false;
+  if (c.smin && (r.surface || 0) < c.smin) return false;
+  if (c.smax && r.surface && r.surface > c.smax) return false;
+  if (c.ymin && r.annee && r.annee < c.ymin) return false;
+  if (c.ymax && r.annee && r.annee > c.ymax) return false;
+  if (c.energy) {
+    const e = r.energie.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+    if (!e.includes(c.energy)) return false;
+  }
+  if (c.zone === 'rayon') {
+    const ctr = center || {lat: map.getCenter().lat, lon: map.getCenter().lng};
+    if (r.lat == null || haversine(ctr, r) > c.radius) return false;
+  }
+  return true;
+}
+function setProgress(p){ const el = $('#progress'); el.classList.toggle('on', p != null); $('#progress i').style.width = (p || 0) + '%'; }
+function setStatus(t, err){ const s = $('#status'); s.textContent = t; s.classList.toggle('err', !!err); }
+
+async function runSearch(){
+  const c = getCriteria();
+  if (!c.labels.length) { setStatus('Sélectionnez au moins une étiquette.', true); return; }
+  let query;
+  try { query = buildQuery(c); } catch (e) { setStatus(e.message, true); return; }
+  saveSearch();
+  abortCtl?.abort(); abortCtl = new AbortController();
+  $('#btn-search').disabled = true; $('#btn-cancel').hidden = false;
+  setProgress(2); setStatus('Interrogation de la base ADEME…');
+  const params = new URLSearchParams({size:'1000', sort:'-date_etablissement_dpe'});
+  if (query.qs) params.set('qs', query.qs);
+  if (query.bbox) params.set('bbox', query.bbox);
+  let url = `${API}?${params}`, out = [], total = 0;
+  const max = +settings.maxResults || 3000;
+  try {
+    while (url && out.length < max) {
+      const res = await fetch(url, {signal: abortCtl.signal});
+      if (!res.ok) throw new Error(`L'API ADEME a répondu ${res.status}. ${res.status === 400 ? 'Critères refusés : essayez de simplifier les filtres.' : 'Réessayez dans un instant.'}`);
+      const j = await res.json();
+      total = j.total ?? total;
+      out.push(...(j.results || []));
+      setProgress(Math.min(98, out.length / Math.min(max, total || max) * 100));
+      setStatus(`Chargement… ${fmt.format(out.length)} / ${fmt.format(Math.min(total, max))}`);
+      url = j.next || null;
+    }
+    const norm = out.map(normalize).filter(r => clientFilter(r, c));
+    loadRecords(norm, false);
+    const noGeo = norm.filter(r => r.lat == null).length;
+    let msg = `${fmt.format(norm.length)} DPE chargés`;
+    if (total > max) msg += ` (sur ${fmt.format(total)} : limite de ${fmt.format(max)} atteinte – affinez la zone ou augmentez la limite dans Réglages)`;
+    if (noGeo) msg += ` · ${noGeo} sans coordonnées (visibles dans la liste seulement)`;
+    setStatus(msg + '.');
+    if (norm.length) { fitResults(); selectTab('list'); }
+  } catch (e) {
+    if (e.name === 'AbortError') setStatus('Recherche annulée.');
+    else {
+      console.error(e);
+      setStatus((e.message && !/fetch/i.test(e.message) ? e.message : 'Impossible de joindre l\'API ADEME (connexion ou blocage réseau).') + ' Vous pouvez charger les données de démonstration.', true);
+    }
+  } finally {
+    setProgress(null); $('#btn-search').disabled = false; $('#btn-cancel').hidden = true;
+  }
+}
+$('#btn-search').addEventListener('click', runSearch);
+$('#btn-cancel').addEventListener('click', () => abortCtl?.abort());
+$('#btn-here').addEventListener('click', () => {
+  $('input[name=zone][value=carte]').checked = true;
+  $('input[name=zone][value=carte]').dispatchEvent(new Event('change'));
+  runSearch();
+});
+
+function loadRecords(list, demo){
+  isDemo = demo;
+  $('#demo-badge').classList.toggle('on', demo);
+  records = enrich(list);
+  byId = new Map(records.map(r => [r.id, r]));
+  // met à jour l'instantané des biens suivis
+  for (const r of records) if (crm[r.id]) crm[r.id].rec = slim(r);
+  saveCrm();
+  listLimit = 150;
+  applyFilters();
+}
+const slim = r => ({id:r.id, num:r.num, date:r.date, fin:r.fin, label:r.label, ges:r.ges, adresse:r.adresse, complement:r.complement, cp:r.cp, commune:r.commune, type:r.type, surface:r.surface, annee:r.annee, periode:r.periode, etage:r.etage, conso:r.conso, emission:r.emission, energie:r.energie, cout:r.cout, lat:r.lat, lon:r.lon, score:r.score, parts:r.parts, demo:isDemo});
+
+function applyFilters(){
+  const minScore = +$('#in-minscore').value;
+  const hideLost = $('#in-hidelost').checked;
+  const onlyCopro = $('#in-onlycopro').checked;
+  filtered = records.filter(r =>
+    r.score >= minScore &&
+    !(hideLost && crm[r.id]?.status === 'perdu') &&
+    !(onlyCopro && (addrCount.get(addrKey(r)) || 0) < 2)
+  );
+  renderMap(); renderList(); renderStats(); updateCounts();
+}
+
+/* ================================================================
+   Données de démonstration
+   ================================================================ */
+function demoData(n = 420){
+  const streets = ['rue de Saint-Malo','rue de la Monnaie','rue Saint-Michel','rue d\'Antrain','boulevard de la Liberté','rue de Paris','rue Saint-Hélier','avenue Janvier','rue Vasselot','rue d\'Échange','quai Lamennais','rue de Brest','rue Jean Guéhenno','rue de Nantes','boulevard Villebois-Mareuil','rue de Fougères','rue de Châteaugiron','rue Paul Bert','rue Legraverend','rue de la Visitation','rue Poullain Duparc','place des Lices','rue Saint-Louis','rue de Dinan','boulevard de Metz','rue Alphonse Guérin','rue de Redon','mail François Mitterrand','rue Jules Simon','rue Hoche'];
+  const energies = ['Électricité','Électricité','Gaz naturel','Gaz naturel','Fioul domestique','Réseau de Chauffage urbain','Bois – Bûches'];
+  const periods = [['avant 1948',1890,1947],['1948-1974',1948,1974],['1975-1977',1975,1977],['1978-1982',1978,1982],['1983-1988',1983,1988]];
+  const dist = 'GGGGFFFFFFFEEEED';
+  let seed = 42; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+  const out = [];
+  for (let i = 0; i < n; i++) {
+    const st = streets[Math.floor(rnd() * streets.length)];
+    const bLat = 48.1117 + (streets.indexOf(st) % 6 - 2.5) * 0.004 + (rnd() - .5) * 0.012;
+    const bLon = -1.6795 + (Math.floor(streets.indexOf(st) / 6) - 2) * 0.006 + (rnd() - .5) * 0.014;
+    const label = dist[Math.floor(rnd() * dist.length)];
+    const maison = rnd() < .18;
+    const surface = maison ? 70 + rnd() * 110 : 14 + rnd() * 90;
+    const p = periods[Math.floor(rnd() * periods.length)];
+    const daysAgo = Math.floor(rnd() ** 1.6 * 720);
+    const date = new Date(Date.now() - daysAgo * 864e5).toISOString().slice(0,10);
+    const no = 1 + Math.floor(rnd() * 60);
+    const conso = {D:200+rnd()*50,E:251+rnd()*79,F:331+rnd()*89,G:421+rnd()*250}[label];
+    out.push({
+      id:'DEMO' + String(i).padStart(5,'0'), num:'DEMO-2535E' + String(100000 + i), date,
+      fin: new Date(new Date(date).getTime() + 3652 * 864e5).toISOString().slice(0,10),
+      label, ges: label, adresse: `${no} ${st} 35000 Rennes`, complement: maison ? '' : `Étage ${Math.floor(rnd()*6)}`,
+      cp:'35000', commune:'Rennes', insee:'35238', type: maison ? 'maison' : 'appartement',
+      surface: Math.round(surface * 10) / 10, annee: p[1] + Math.floor(rnd() * (p[2] - p[1])), periode: p[0],
+      etage: maison ? null : Math.floor(rnd()*6), conso: Math.round(conso), emission: Math.round(conso / 8),
+      energie: energies[Math.floor(rnd() * energies.length)], cout: Math.round(conso * surface * .17),
+      lat: bLat, lon: bLon
+    });
+  }
+  return out;
+}
+$('#btn-demo').addEventListener('click', () => {
+  const c = getCriteria();
+  const list = demoData().filter(r => clientFilter({...r}, {...c, zone:'demo'}));
+  loadRecords(list, true);
+  setStatus(`${list.length} DPE fictifs chargés autour de la place des Lices (démonstration).`);
+  fitResults(); selectTab('list');
+});
+
+/* ================================================================
+   Liste des résultats
+   ================================================================ */
+const SORTS = {
+  score:(a,b) => b.score - a.score || (b.date || '').localeCompare(a.date || ''),
+  date:(a,b) => (b.date || '').localeCompare(a.date || ''),
+  surface:(a,b) => (b.surface || 0) - (a.surface || 0),
+  label:(a,b) => LABELS.indexOf(b.label) - LABELS.indexOf(a.label) || b.score - a.score,
+  conso:(a,b) => (b.conso || 0) - (a.conso || 0)
+};
+const textMatch = (r, q) => !q || [r.adresse, r.complement, r.num, r.commune, r.cp, crm[r.id]?.note].join(' ').toLowerCase().includes(q);
+function cardHtml(r, opts = {}){
+  const c = crm[r.id];
+  const d = daysSince(r.date);
+  const age = d === Infinity ? '' : d < 31 ? `il y a ${d} j` : d < 365 ? `il y a ${Math.round(d/30)} mois` : `il y a ${(d/365).toFixed(1).replace('.',',')} an(s)`;
+  return `<li class="card" data-id="${esc(r.id)}">
+    <span class="dpe dpe-${esc(r.label)}">${esc(r.label || '?')}</span>
+    <div style="min-width:0">
+      <div class="card__addr">${c?.fav ? '<span class="star">★</span> ' : ''}${esc(r.adresse)}</div>
+      <div class="card__meta">${esc(r.type || '—')} · ${r.surface ? Math.round(r.surface) + ' m²' : '? m²'}${r.annee ? ' · ' + r.annee : ''} · DPE ${age}</div>
+      ${c && c.status !== 'nouveau' ? `<span class="pill st-${c.status}">${STATUS_LABEL[c.status]}</span>` : ''}
+      ${opts.relance && c?.relance ? ` <span class="pill" style="background:#fff3e0;color:#e65100">Relance ${fdate(c.relance)}</span>` : ''}
+    </div>
+    <div class="card__right"><span class="score s${tier(r.score || 0)}" title="Score de priorité">${r.score ?? '–'}</span></div>
+  </li>`;
+}
+function renderList(){
+  const q = $('#list-q').value.trim().toLowerCase();
+  const rows = filtered.filter(r => textMatch(r, q)).sort(SORTS[$('#list-sort').value]);
+  const ul = $('#list');
+  if (!records.length) ul.innerHTML = '<li class="empty">Aucun résultat pour l\'instant.<br>Lancez une recherche depuis l\'onglet Recherche.</li>';
+  else if (!rows.length) ul.innerHTML = '<li class="empty">Aucun bien ne correspond à ces filtres.</li>';
+  else ul.innerHTML = rows.slice(0, listLimit).map(r => cardHtml(r)).join('');
+  $('#list-more').hidden = rows.length <= listLimit;
+  $('#list-more').textContent = `Afficher plus (${fmt.format(rows.length - listLimit)} restants)`;
+  renderList.rows = rows;
+}
+$('#list-q').addEventListener('input', debounce(() => { listLimit = 150; renderList(); }, 200));
+$('#list-sort').addEventListener('change', renderList);
+$('#list-more').addEventListener('click', () => { listLimit += 300; renderList(); });
+function onCardClick(e){
+  const li = e.target.closest('.card'); if (!li) return;
+  openFiche(li.dataset.id);
+}
+$('#list').addEventListener('click', onCardClick);
+$('#crm-list').addEventListener('click', onCardClick);
+$('#list').addEventListener('mouseover', e => {
+  const li = e.target.closest('.card'); if (!li) return;
+  const m = markers.get(li.dataset.id);
+  if (m && map.hasLayer(m)) m.openTooltip();
+});
+$('#btn-fit').addEventListener('click', () => { fitResults(); showMapOnMobile(); });
+$('#btn-csv').addEventListener('click', () => exportCsv(renderList.rows || filtered, 'radar-dpe'));
+$('#btn-tour-top').addEventListener('click', () => {
+  const top = (renderList.rows || []).filter(r => r.lat != null).slice(0, 10);
+  let n = 0; for (const r of top) if (!tour.includes(r.id)) { tour.push(r.id); ensureCrm(r); n++; }
+  saveTour(); saveCrm(); renderTour(); toast(`${n} bien(s) ajouté(s) à la tournée`);
+});
+$('#btn-print-list').addEventListener('click', () => printTable(renderList.rows || filtered, 'Radar DPE – liste de prospection'));
+
+function exportCsv(rows, name){
+  const head = ['Score','Étiquette','GES','Adresse','Complément','CP','Commune','Type','Surface m²','Année','Énergie chauffage','Conso kWhEP/m²/an','Coût annuel €','Date DPE','N° DPE','Statut','Note','Relance','Latitude','Longitude','Valeur estimée €','Honoraires potentiels €'];
+  const data = rows.map(r => {
+    const c = crm[r.id], e = estimate(r);
+    return [r.score, r.label, r.ges, r.adresse, r.complement, r.cp, r.commune, r.type, r.surface, r.annee, r.energie, r.conso, r.cout, r.date, r.num, c ? STATUS_LABEL[c.status] : '', c?.note, c?.relance, r.lat, r.lon, e ? Math.round(e.valeur) : '', e ? Math.round(e.honoraires) : ''];
+  });
+  download(`${name}-${today()}.csv`, csv([head, ...data]), 'text/csv;charset=utf-8');
+  toast(`${rows.length} lignes exportées`);
+}
+
+/* ================================================================
+   Fiche détaillée
+   ================================================================ */
+function getRec(id){ return byId.get(id) || crm[id]?.rec || null; }
+function ensureCrm(r){
+  if (!crm[r.id]) crm[r.id] = {status:'nouveau', note:'', relance:'', fav:false, updated:Date.now(), rec:slim(r)};
+  return crm[r.id];
+}
+function echeanceTxt(label){
+  const b = BAN[label];
+  if (!b) return '';
+  return label === 'G'
+    ? 'Depuis le 1er janvier 2025, un logement classé G ne peut plus faire l\'objet d\'un nouveau bail ni d\'un renouvellement, et ses loyers sont gelés.'
+    : `À partir du 1er janvier ${b.year}, un logement classé ${label} ne pourra plus être proposé à la location${label === 'F' ? ' ; ses loyers sont déjà gelés' : ''}.`;
+}
+function flagsFor(r){
+  const f = [];
+  const b = BAN[r.label];
+  if (b) {
+    const left = b.year - new Date().getFullYear();
+    f.push(['red', `<b>Loi Climat & Résilience :</b> logement ${b.txt}${left > 0 ? ` (dans ${left} an${left > 1 ? 's' : ''})` : ''}.${'FG'.includes(r.label) ? ' Loyers gelés (pas de révision ni d\'augmentation).' : ''}`]);
+  }
+  if (r.type === 'maison' && 'EFG'.includes(r.label) && r.label) f.push(['', '<b>Audit énergétique obligatoire</b> pour vendre cette maison (étiquettes E, F, G) : argument fort pour proposer un accompagnement complet.']);
+  if (isElecReclass(r)) f.push(['blue', '<b>Chauffage électrique :</b> depuis le 1er janvier 2026, le coefficient de l\'électricité est passé de 2,3 à 1,9. Ce logement peut gagner une étiquette : proposez une nouvelle attestation ou un nouveau DPE avant mise en vente ou en location.']);
+  const n = addrCount.get(addrKey(r)) || 0;
+  if (n > 1) f.push(['', `<b>${n} DPE trouvés à cette adresse</b> : probable copropriété avec plusieurs logements énergivores. Cible pour une prospection groupée ou le syndic.`]);
+  const d = daysSince(r.date);
+  if (d <= 120) f.push(['', `<b>DPE très récent (${d} jours)</b> : le propriétaire prépare souvent une vente ou une location. Contact prioritaire.`]);
+  if (r.fin && r.fin < today()) f.push(['', 'DPE arrivé à expiration : un nouveau diagnostic sera nécessaire.']);
+  return f;
+}
+function links(r){
+  if (r.lat == null) return '';
+  const L_ = [
+    ['Street View', `https://www.google.com/maps/@?api=1&map_action=pano&viewpoint=${r.lat},${r.lon}`],
+    ['Google Maps', `https://www.google.com/maps/search/?api=1&query=${r.lat},${r.lon}`],
+    ['Ventes DVF', `https://explore.data.gouv.fr/fr/immobilier?onglet=carte&filtre=tous&lat=${r.lat}&lng=${r.lon}&zoom=18`],
+    ['Cadastre', `https://cadastre.data.gouv.fr/map?style=ortho#18/${r.lat}/${r.lon}`],
+    ['Géoportail', `https://www.geoportail.gouv.fr/carte?c=${r.lon},${r.lat}&z=19&l0=ORTHOIMAGERY.ORTHOPHOTOS::GEOPORTAIL:OGC:WMTS(1)&permalink=yes`]
+  ];
+  if (r.num && !String(r.num).startsWith('DEMO')) L_.unshift(['DPE officiel (ADEME)', `https://observatoire-dpe-audit.ademe.fr/afficher-dpe/${encodeURIComponent(r.num)}`]);
+  return L_.map(([t, u]) => `<a class="btn btn--ghost btn--sm" href="${esc(u)}" target="_blank" rel="noopener">${t} ↗</a>`).join('');
+}
+function openFiche(id){
+  const r = getRec(id); if (!r) return;
+  const c = crm[id];
+  const e = estimate(r);
+  const box = $('#modal-box');
+  box.innerHTML = `
+    <div class="modal__head">
+      <span class="dpe dpe-${esc(r.label)}">${esc(r.label || '?')}</span>
+      <div style="min-width:0">
+        <h2 id="fiche-title">${esc(r.adresse)}</h2>
+        <div class="card__meta">${esc(r.complement || '')}${r.complement ? ' · ' : ''}${esc(r.type || 'type inconnu')} · DPE du ${fdate(r.date)}</div>
+        <div style="margin-top:6px"><span class="score s${tier(r.score || 0)}">${r.score ?? '–'}</span> <span class="card__meta">priorité ${TIER_NAME[tier(r.score || 0)].toLowerCase()}</span></div>
+      </div>
+      <button class="modal__close" data-close aria-label="Fermer">×</button>
+    </div>
+    <div class="modal__body">
+      <div class="grid2">
+        <div>
+          <dl class="dl">
+            <dt>Surface</dt><dd>${r.surface ? num(r.surface) + ' m²' : '—'}</dd>
+            <dt>Construction</dt><dd>${r.annee || esc(r.periode) || '—'}</dd>
+            ${r.etage != null && r.etage !== '' ? `<dt>Étage</dt><dd>${esc(r.etage)}</dd>` : ''}
+            <dt>Chauffage</dt><dd>${esc(r.energie || '—')}</dd>
+            <dt>Consommation</dt><dd>${r.conso ? num(r.conso) + ' kWhEP/m²/an' : '—'}</dd>
+            <dt>Émissions</dt><dd>${r.emission ? num(r.emission) + ' kgCO₂/m²/an' : '—'} ${r.ges ? `<span class="dpe dpe--sm dpe-${esc(r.ges)}">${esc(r.ges)}</span>` : ''}</dd>
+            <dt>Facture estimée</dt><dd>${r.cout ? num(r.cout) + ' €/an' : '—'}</dd>
+            <dt>N° DPE</dt><dd style="word-break:break-all">${esc(r.num || '—')}</dd>
+            <dt>Valide jusqu'au</dt><dd>${fdate(r.fin)}</dd>
+          </dl>
+        </div>
+        <div>
+          <span class="lbl">Échelle énergie</span>
+          <div class="scale">${LABELS.map((l, i) => `<div class="${l === r.label ? 'cur' : ''}" style="width:${35 + i * 10}%;background:${COLORS[l]};${l==='D'?'color:#4a4400':''}">${l}</div>`).join('')}</div>
+        </div>
+      </div>
+
+      <div class="flags">${flagsFor(r).map(([k, t]) => `<div class="flag ${k ? 'flag--' + k : ''}">${t}</div>`).join('')}</div>
+
+      <div class="grid2">
+        <div>
+          <span class="lbl">Détail du score</span>
+          <ul class="breakdown">${(r.parts || []).map(([l, p]) => `<li><span>${esc(l)}</span><span>+${p}</span></li>`).join('')}<li><span><b>Total</b></span><span>${r.score}</span></li></ul>
+        </div>
+        <div>
+          <span class="lbl">Potentiel (indicatif)</span>
+          ${e ? `<dl class="dl">
+            <dt>Valeur estimée</dt><dd>${eur(e.valeur)}</dd>
+            <dt>Décote énergie</dt><dd>−${eur(e.decote)}</dd>
+            <dt>Honoraires</dt><dd>${eur(e.honoraires)}</dd>
+            ${e.travaux ? `<dt>Travaux</dt><dd>${eur(e.travaux[0])} à ${eur(e.travaux[1])}</dd>` : ''}
+          </dl><small class="card__meta">Base ${fmt.format(settings.prixM2)} €/m² (Réglages). Vérifiez avec les ventes DVF du secteur.</small>` : '<p class="card__meta">Surface inconnue.</p>'}
+        </div>
+      </div>
+
+      <div class="crm">
+        <span class="lbl">Suivi</span>
+        <div class="row">
+          <div class="field"><label for="f-status">Statut</label>
+            <select class="input" id="f-status">${STATUSES.map(([k, l]) => `<option value="${k}" ${(c?.status || 'nouveau') === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>
+          <div class="field"><label for="f-relance">Relance le</label><input class="input" type="date" id="f-relance" value="${esc(c?.relance || '')}"></div>
+        </div>
+        <div class="field"><label for="f-note">Notes</label><textarea class="input" id="f-note" placeholder="Nom sur la boîte aux lettres, état extérieur, échange avec le gardien…">${esc(c?.note || '')}</textarea></div>
+        <label class="check"><input type="checkbox" id="f-fav" ${c?.fav ? 'checked' : ''}> ★ Favori</label>
+        <div class="btns">
+          <button class="btn" id="f-save">Enregistrer</button>
+          <button class="btn btn--ghost" id="f-tour">${tour.includes(id) ? '✓ Dans la tournée' : '+ Tournée'}</button>
+          <button class="btn btn--ghost" id="f-letter">Courrier</button>
+          <button class="btn btn--ghost" id="f-map">Voir sur la carte</button>
+          ${c ? '<button class="btn btn--danger btn--sm" id="f-del">Retirer du suivi</button>' : ''}
+        </div>
+      </div>
+
+      <span class="lbl" style="margin-top:14px">Vérifier sur place / en ligne</span>
+      <div class="links">${links(r)}</div>
+    </div>`;
+  $('#modal').classList.add('open');
+  box.scrollTop = 0;
+  $('#modal').dataset.id = id;
+  $('#f-save').addEventListener('click', () => {
+    const cc = ensureCrm(r);
+    cc.status = $('#f-status').value; cc.relance = $('#f-relance').value; cc.note = $('#f-note').value.trim();
+    cc.fav = $('#f-fav').checked; cc.updated = Date.now(); cc.rec = slim(r);
+    if (!cc.history) cc.history = [];
+    cc.history.push({d:Date.now(), s:cc.status});
+    saveCrm(); refreshMarker(id); renderList(); renderCrm(); closeModal(); toast('Suivi enregistré');
+  });
+  $('#f-tour').addEventListener('click', ev => {
+    if (tour.includes(id)) { tour = tour.filter(x => x !== id); ev.target.textContent = '+ Tournée'; }
+    else { tour.push(id); ensureCrm(r); saveCrm(); ev.target.textContent = '✓ Dans la tournée'; }
+    saveTour(); renderTour();
+  });
+  $('#f-letter').addEventListener('click', () => printLetters([r]));
+  $('#f-map').addEventListener('click', () => { closeModal(); focusRecord(r); });
+  $('#f-del')?.addEventListener('click', () => {
+    if (!confirm('Retirer ce bien du suivi ? Les notes seront supprimées.')) return;
+    delete crm[id]; tour = tour.filter(x => x !== id); saveCrm(); saveTour();
+    refreshMarker(id); renderCrm(); renderTour(); renderList(); closeModal();
+  });
+  $('.modal__close', box).focus();
+}
+function closeModal(){ $('#modal').classList.remove('open'); }
+$('#modal').addEventListener('click', e => { if (e.target.id === 'modal' || e.target.closest('[data-close]')) closeModal(); });
+document.addEventListener('keydown', e => { if (e.key === 'Escape' && $('#modal').classList.contains('open')) closeModal(); });
+
+/* ================================================================
+   Suivi (CRM)
+   ================================================================ */
+function renderCrm(){
+  const all = Object.entries(crm).map(([id, c]) => ({id, c, r: byId.get(id) || c.rec})).filter(x => x.r);
+  const counts = Object.fromEntries(STATUSES.map(([k]) => [k, 0]));
+  all.forEach(x => counts[x.c.status] = (counts[x.c.status] || 0) + 1);
+  $('#pipe').innerHTML = STATUSES.map(([k, l]) => `<button data-st="${k}" aria-pressed="${crmFilter === k}"><strong>${counts[k]}</strong><small>${l}</small></button>`).join('')
+    + `<button data-st="" aria-pressed="${crmFilter === ''}"><strong>${all.length}</strong><small>Tous</small></button>`
+    + `<button data-st="__relance" aria-pressed="${crmFilter === '__relance'}"><strong>${all.filter(x => x.c.relance).length}</strong><small>Relances</small></button>`;
+  const due = all.filter(x => x.c.relance && x.c.relance <= today() && !['mandat','perdu'].includes(x.c.status));
+  $('#crm-alert').innerHTML = due.length ? `<div class="alert">⏰ <span><b>${due.length} relance(s)</b> à faire aujourd'hui ou en retard.</span> <button class="btn btn--sm" style="margin-left:auto" data-due>Voir</button></div>` : '';
+  const q = $('#crm-q').value.trim().toLowerCase();
+  const fav = $('#crm-fav').checked;
+  let rows = all.filter(x =>
+    (crmFilter === '' || (crmFilter === '__relance' ? !!x.c.relance : x.c.status === crmFilter)) &&
+    (!fav || x.c.fav) && textMatch(x.r, q));
+  rows.sort(crmFilter === '__relance' ? (a, b) => a.c.relance.localeCompare(b.c.relance) : (a, b) => (b.c.updated || 0) - (a.c.updated || 0));
+  $('#crm-list').innerHTML = rows.length ? rows.map(x => cardHtml(x.r, {relance:true})).join('') :
+    '<li class="empty">Aucun bien suivi.<br>Ouvrez la fiche d\'un DPE et changez son statut pour commencer.</li>';
+  renderCrm.rows = rows.map(x => x.r);
+}
+$('#pipe').addEventListener('click', e => { const b = e.target.closest('button'); if (!b) return; crmFilter = b.dataset.st; renderCrm(); });
+$('#crm-alert').addEventListener('click', e => { if (e.target.closest('[data-due]')) { crmFilter = '__relance'; renderCrm(); } });
+$('#crm-q').addEventListener('input', debounce(renderCrm, 200));
+$('#crm-fav').addEventListener('change', renderCrm);
+$('#btn-crm-csv').addEventListener('click', () => exportCsv(renderCrm.rows || [], 'suivi-prospection'));
+$('#btn-crm-letters').addEventListener('click', () => {
+  const rows = Object.entries(crm).filter(([, c]) => c.status === 'a_contacter').map(([id, c]) => byId.get(id) || c.rec).filter(Boolean);
+  if (!rows.length) return toast('Aucun bien au statut « À contacter »');
+  printLetters(rows);
+});
+$('#btn-crm-show').addEventListener('click', () => {
+  const rows = Object.entries(crm).map(([id, c]) => byId.get(id) || c.rec).filter(r => r && r.lat != null);
+  if (!rows.length) return toast('Aucun bien suivi géolocalisé');
+  const known = new Set(records.map(r => r.id));
+  const extra = rows.filter(r => !known.has(r.id));
+  if (extra.length) { records = enrich([...records, ...extra]); byId = new Map(records.map(r => [r.id, r])); applyFilters(); }
+  map.fitBounds(rows.map(r => [r.lat, r.lon]), {padding:[40,40], maxZoom:17});
+  showMapOnMobile();
+});
+
+/* ================================================================
+   Tournée
+   ================================================================ */
+function tourRecs(){ return tour.map(id => getRec(id)).filter(Boolean); }
+function renderTour(){
+  tourLayer.clearLayers();
+  const rs = tourRecs();
+  const start = {lat:+settings.lat, lon:+settings.lon};
+  let dist = 0, prev = start;
+  $('#tour-list').innerHTML = rs.length ? rs.map((r, i) => {
+    if (r.lat != null) { dist += haversine(prev, r); prev = r; }
+    return `<div class="tour-item" data-id="${esc(r.id)}">
+      <span class="tour-num">${i + 1}</span>
+      <div style="min-width:0;cursor:pointer" data-open><div class="card__addr">${esc(r.adresse)}</div>
+      <div class="card__meta"><span class="dpe dpe--sm dpe-${esc(r.label)}">${esc(r.label)}</span> ${esc(r.complement || r.type || '')}${crm[r.id] ? ' · ' + STATUS_LABEL[crm[r.id].status] : ''}</div></div>
+      <button class="x" data-rm aria-label="Retirer">×</button></div>`;
+  }).join('') : '<p class="empty">Tournée vide.</p>';
+  $('#tour-info').textContent = rs.length ? `${rs.length} arrêt(s) · environ ${(dist / 1000).toFixed(1).replace('.', ',')} km à vol d'oiseau depuis l'agence · ~${Math.round(dist / 1000 * 15 + rs.length * 3)} min à pied (boîtage)` : '';
+  const pts = [[start.lat, start.lon], ...rs.filter(r => r.lat != null).map(r => [r.lat, r.lon])];
+  if (pts.length > 1) {
+    L.polyline(pts, {color:'#1b3527', weight:3, opacity:.7, dashArray:'4 6'}).addTo(tourLayer);
+    rs.filter(r => r.lat != null).forEach((r, i) => L.marker([r.lat, r.lon], {
+      icon: L.divIcon({className:'', html:`<span class="tour-num" style="box-shadow:0 0 0 2px #fff">${i + 1}</span>`, iconSize:[24,24], iconAnchor:[12,12]}),
+      zIndexOffset:1000
+    }).on('click', () => openFiche(r.id)).addTo(tourLayer));
+    L.circleMarker([start.lat, start.lon], {radius:7, color:'#fff', weight:2, fillColor:'#a8844f', fillOpacity:1}).bindTooltip('Départ : agence').addTo(tourLayer);
+  }
+  updateCounts();
+}
+$('#tour-list').addEventListener('click', e => {
+  const it = e.target.closest('.tour-item'); if (!it) return;
+  if (e.target.closest('[data-rm]')) { tour = tour.filter(x => x !== it.dataset.id); saveTour(); renderTour(); }
+  else if (e.target.closest('[data-open]')) openFiche(it.dataset.id);
+});
+function optimizeTour(){
+  const rs = tourRecs(); const geo = rs.filter(r => r.lat != null), nogeo = rs.filter(r => r.lat == null);
+  let cur = {lat:+settings.lat, lon:+settings.lon}; const left = [...geo], order = [];
+  while (left.length) {
+    let bi = 0, bd = Infinity;
+    left.forEach((r, i) => { const d = haversine(cur, r); if (d < bd) { bd = d; bi = i; } });
+    cur = left.splice(bi, 1)[0]; order.push(cur);
+  }
+  // amélioration 2-opt
+  const path = [{lat:+settings.lat, lon:+settings.lon}, ...order];
+  let improved = true, guard = 0;
+  while (improved && guard++ < 50) {
+    improved = false;
+    for (let i = 1; i < path.length - 2; i++) for (let k = i + 1; k < path.length - 1; k++) {
+      const d1 = haversine(path[i-1], path[i]) + haversine(path[k], path[k+1]);
+      const d2 = haversine(path[i-1], path[k]) + haversine(path[i], path[k+1]);
+      if (d2 + 1e-6 < d1) { path.splice(i, k - i + 1, ...path.slice(i, k + 1).reverse()); improved = true; }
+    }
+  }
+  tour = [...path.slice(1).map(r => r.id), ...nogeo.map(r => r.id)];
+  saveTour(); renderTour(); toast('Itinéraire optimisé');
+}
+$('#btn-tour-opt').addEventListener('click', optimizeTour);
+$('#btn-tour-clear').addEventListener('click', () => { if (tour.length && confirm('Vider la tournée ?')) { tour = []; saveTour(); renderTour(); } });
+$('#btn-tour-gmaps').addEventListener('click', () => {
+  const rs = tourRecs().filter(r => r.lat != null);
+  if (!rs.length) return toast('Tournée vide');
+  const chunks = [];
+  for (let i = 0; i < rs.length; i += 9) chunks.push(rs.slice(i, i + 9));
+  chunks.forEach((ch, i) => {
+    const origin = i === 0 ? `${settings.lat},${settings.lon}` : `${chunks[i-1].at(-1).lat},${chunks[i-1].at(-1).lon}`;
+    const dest = ch.at(-1), way = ch.slice(0, -1).map(r => `${r.lat},${r.lon}`).join('|');
+    window.open(`https://www.google.com/maps/dir/?api=1&travelmode=walking&origin=${origin}&destination=${dest.lat},${dest.lon}${way ? '&waypoints=' + encodeURIComponent(way) : ''}`, '_blank', 'noopener');
+  });
+  if (chunks.length > 1) toast(`${chunks.length} trajets ouverts (Google Maps limite les étapes)`);
+});
+$('#btn-tour-print').addEventListener('click', () => { const rs = tourRecs(); if (!rs.length) return toast('Tournée vide'); printTable(rs, 'Feuille de route – tournée du ' + new Date().toLocaleDateString('fr-FR'), true); });
+$('#btn-tour-letters').addEventListener('click', () => { const rs = tourRecs(); if (!rs.length) return toast('Tournée vide'); printLetters(rs); });
+
+/* ================================================================
+   Impression : courriers & tableaux
+   ================================================================ */
+function fillTemplate(tpl, r){
+  const v = {
+    adresse: (r.adresse || '').replace(/\s\d{5}\s.*$/, ''), complement: r.complement ? ' (' + r.complement + ')' : '',
+    cp: r.cp || '', commune: r.commune || '', etiquette: r.label, surface: r.surface ? Math.round(r.surface) + ' m²' : '',
+    type: r.type || 'logement', date_dpe: fdate(r.date), echeance: echeanceTxt(r.label),
+    agence: settings.agence, adresse_agence: settings.adresse, tel: settings.tel, email: settings.email, signataire: settings.signataire
+  };
+  return tpl.replace(/\{(\w+)\}/g, (m, k) => k in v ? v[k] : m);
+}
+function printLetters(rs){
+  const date = new Date().toLocaleDateString('fr-FR', {day:'numeric', month:'long', year:'numeric'});
+  const city = (settings.adresse.match(/\d{5}\s+(.+)$/) || [, ''])[1];
+  $('#print-area').innerHTML = rs.map(r => `
+    <div class="letter">
+      <div class="letter__head"><div class="letter__brand"><b>${esc(settings.agence)}</b><div>${esc(settings.adresse)}<br>${esc(settings.tel)} · ${esc(settings.email)}</div></div></div>
+      <div class="letter__to">Au propriétaire<br>${esc((r.adresse || '').replace(/\s\d{5}\s.*$/, ''))}${r.complement ? '<br>' + esc(r.complement) : ''}<br>${esc(r.cp || '')} ${esc(r.commune || '')}</div>
+      <div class="letter__date">${esc(city)}${city ? ', le ' : 'Le '}${date}</div>
+      ${fillTemplate(settings.letter, r).split(/\n{2,}/).map(p => `<p>${esc(p)}</p>`).join('')}
+    </div>`).join('');
+  // passage automatique en « Contacté » proposé après impression
+  setTimeout(() => {
+    window.print();
+    if (confirm(`Marquer ${rs.length} bien(s) comme « Contacté » ?`)) {
+      rs.forEach(r => { const c = ensureCrm(r); if (['nouveau','a_contacter'].includes(c.status)) { c.status = 'contacte'; c.updated = Date.now(); c.note = (c.note ? c.note + '\n' : '') + `Courrier envoyé le ${new Date().toLocaleDateString('fr-FR')}`; } });
+      saveCrm(); renderCrm(); renderMap(); renderList();
+    }
+  }, 50);
+}
+function printTable(rs, title, withSign){
+  $('#print-area').innerHTML = `<h1 class="print-title">${esc(title)}</h1>
+    <table class="print-table"><thead><tr><th>#</th><th>DPE</th><th>Adresse</th><th>Type / surface</th><th>Score</th><th>Statut</th>${withSign ? '<th style="width:30%">Observations terrain</th>' : '<th>Notes</th>'}</tr></thead><tbody>
+    ${rs.slice(0, 500).map((r, i) => `<tr><td>${i + 1}</td><td>${esc(r.label)}</td><td>${esc(r.adresse)}${r.complement ? '<br><small>' + esc(r.complement) + '</small>' : ''}</td><td>${esc(r.type || '')} ${r.surface ? Math.round(r.surface) + ' m²' : ''}</td><td>${r.score ?? ''}</td><td>${crm[r.id] ? STATUS_LABEL[crm[r.id].status] : ''}</td><td>${withSign ? '' : esc(crm[r.id]?.note || '')}</td></tr>`).join('')}
+    </tbody></table>`;
+  setTimeout(() => window.print(), 50);
+}
+
+/* ================================================================
+   Statistiques
+   ================================================================ */
+function renderStats(){
+  const el = $('#stats');
+  if (!filtered.length) { el.innerHTML = '<p class="empty">Chargez des résultats pour voir l\'analyse.</p>'; return; }
+  const n = filtered.length;
+  const byL = Object.fromEntries(LABELS.map(l => [l, 0])); filtered.forEach(r => byL[r.label] = (byL[r.label] || 0) + 1);
+  const surf = filtered.filter(r => r.surface).map(r => r.surface);
+  const avgS = surf.reduce((a, b) => a + b, 0) / (surf.length || 1);
+  const hot = filtered.filter(r => r.score >= 65).length;
+  const recent = filtered.filter(r => daysSince(r.date) <= 90).length;
+  const potential = filtered.filter(r => r.score >= 50).reduce((s, r) => s + (estimate(r)?.honoraires || 0), 0);
+  const byType = {}; filtered.forEach(r => byType[r.type || 'inconnu'] = (byType[r.type || 'inconnu'] || 0) + 1);
+  const byE = {}; filtered.forEach(r => { const k = (r.energie || 'Inconnue').split(/[\s–-]/)[0]; byE[k] = (byE[k] || 0) + 1; });
+  const streets = {};
+  filtered.forEach(r => { const s = (r.adresse || '').replace(/^\d+\s*(bis|ter)?\s*/i, '').replace(/\s\d{5}.*$/, '').trim(); if (s) streets[s] = (streets[s] || 0) + 1; });
+  const months = {};
+  filtered.forEach(r => { if (r.date) { const m = r.date.slice(0, 7); months[m] = (months[m] || 0) + 1; } });
+  const mk = Object.keys(months).sort().slice(-12);
+  const mMax = Math.max(1, ...mk.map(k => months[k]));
+  const max = Math.max(1, ...Object.values(byL));
+  const bars = (obj, colorFn) => { const m = Math.max(1, ...Object.values(obj)); return Object.entries(obj).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([k, v]) => `<div class="bar" style="grid-template-columns:110px 1fr 54px"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(k)}</span><div class="bar__track"><div class="bar__fill" style="width:${v / m * 100}%;background:${colorFn ? colorFn(k) : 'var(--green-700)'}"></div></div><span class="bar__val">${fmt.format(v)}</span></div>`).join(''); };
+  el.innerHTML = `
+    <div class="kpis">
+      <div class="kpi"><strong>${fmt.format(n)}</strong><small>DPE affichés</small></div>
+      <div class="kpi"><strong>${fmt.format(hot)}</strong><small>priorité haute (score ≥ 65)</small></div>
+      <div class="kpi"><strong>${fmt.format(recent)}</strong><small>DPE de moins de 3 mois</small></div>
+      <div class="kpi"><strong>${Math.round(avgS)} m²</strong><small>surface moyenne</small></div>
+      <div class="kpi" style="grid-column:1/-1"><strong>${eur(potential)}</strong><small>honoraires potentiels (biens score ≥ 50, base ${fmt.format(settings.prixM2)} €/m² et ${settings.honoraires} %)</small></div>
+    </div>
+    <h3 class="sub">Répartition par étiquette</h3>
+    <div class="bars">${LABELS.filter(l => byL[l]).map(l => `<div class="bar"><span class="dpe dpe--sm dpe-${l}">${l}</span><div class="bar__track"><div class="bar__fill" style="width:${byL[l] / max * 100}%;background:${COLORS[l]}"></div></div><span class="bar__val">${fmt.format(byL[l])} · ${Math.round(byL[l] / n * 100)} %</span></div>`).join('')}</div>
+    <h3 class="sub">DPE réalisés par mois</h3>
+    <div style="display:flex;align-items:flex-end;gap:3px;height:90px;margin-bottom:4px">${mk.map(k => `<div title="${k} : ${months[k]}" style="flex:1;background:var(--gold);height:${Math.max(3, months[k] / mMax * 100)}%;border-radius:2px 2px 0 0"></div>`).join('')}</div>
+    <div style="display:flex;justify-content:space-between;font-size:.7rem;color:var(--muted)"><span>${mk[0] || ''}</span><span>${mk.at(-1) || ''}</span></div>
+    <h3 class="sub">Type de bien</h3><div class="bars">${bars(byType)}</div>
+    <h3 class="sub">Énergie de chauffage</h3><div class="bars">${bars(byE)}</div>
+    <h3 class="sub">Rues les plus concernées</h3>
+    <ul class="toplist">${Object.entries(streets).sort((a, b) => b[1] - a[1]).slice(0, 12).map(([s, v]) => `<li><span>${esc(s)}</span><span>${v} DPE</span></li>`).join('')}</ul>`;
+}
+
+/* ================================================================
+   Réglages & sauvegarde
+   ================================================================ */
+const SF = {agence:'#s-agence', adresse:'#s-adresse', tel:'#s-tel', email:'#s-email', signataire:'#s-sign', prixM2:'#s-prix', honoraires:'#s-hono', lat:'#s-lat', lon:'#s-lon', maxResults:'#s-max', letter:'#s-letter'};
+function fillSettings(){ for (const [k, s] of Object.entries(SF)) $(s).value = settings[k]; }
+$('#settings-form').addEventListener('submit', e => {
+  e.preventDefault();
+  for (const [k, s] of Object.entries(SF)) settings[k] = ['prixM2','honoraires','lat','lon','maxResults'].includes(k) ? +$(s).value : $(s).value;
+  store.set(LS.settings, settings);
+  enrich(records); applyFilters(); renderTour(); toast('Réglages enregistrés');
+});
+$('#btn-letter-reset').addEventListener('click', () => { $('#s-letter').value = DEFAULT_LETTER; });
+$('#btn-backup').addEventListener('click', () => {
+  download(`radar-dpe-sauvegarde-${today()}.json`, JSON.stringify({version:1, date:new Date().toISOString(), crm, tour, settings}, null, 2), 'application/json');
+});
+$('#in-restore').addEventListener('change', async e => {
+  const f = e.target.files[0]; if (!f) return;
+  try {
+    const j = JSON.parse(await f.text());
+    if (!j.crm) throw new Error();
+    if (!confirm(`Restaurer ${Object.keys(j.crm).length} bien(s) suivis ? Les biens déjà suivis seront fusionnés.`)) return;
+    crm = {...crm, ...j.crm}; tour = [...new Set([...tour, ...(j.tour || [])])];
+    if (j.settings) { settings = {...settings, ...j.settings}; store.set(LS.settings, settings); fillSettings(); }
+    saveCrm(); saveTour(); renderCrm(); renderTour(); applyFilters(); toast('Sauvegarde restaurée');
+  } catch { toast('Fichier de sauvegarde invalide'); }
+  e.target.value = '';
+});
+$('#btn-wipe').addEventListener('click', () => {
+  if (!confirm('Effacer tout le suivi, la tournée et les réglages de ce navigateur ?')) return;
+  crm = {}; tour = []; settings = {...DEFAULT_SETTINGS};
+  Object.values(LS).forEach(k => { try { localStorage.removeItem(k); } catch {} });
+  fillSettings(); renderCrm(); renderTour(); applyFilters(); toast('Données effacées');
+});
+
+/* ================================================================
+   Onglets, mobile, divers
+   ================================================================ */
+function selectTab(name){
+  $$('.tab').forEach(t => t.setAttribute('aria-selected', t.dataset.view === name));
+  $$('.view').forEach(v => v.classList.toggle('active', v.id === 'view-' + name));
+  if (name === 'crm') renderCrm();
+  if (name === 'stats') renderStats();
+  if (name === 'tour') renderTour();
+  showPanelOnMobile();
+}
+$$('.tab').forEach(t => t.addEventListener('click', () => selectTab(t.dataset.view)));
+function showMapOnMobile(){ document.body.classList.add('show-map'); $('#m-map').classList.add('on'); $('#m-panel').classList.remove('on'); setTimeout(() => map.invalidateSize(), 50); }
+function showPanelOnMobile(){ document.body.classList.remove('show-map'); $('#m-panel').classList.add('on'); $('#m-map').classList.remove('on'); }
+$('#m-map').addEventListener('click', showMapOnMobile);
+$('#m-panel').addEventListener('click', showPanelOnMobile);
+$('#btn-heat').addEventListener('click', e => {
+  heatOn = !heatOn; e.target.setAttribute('aria-pressed', heatOn);
+  e.target.classList.toggle('btn--ghost', !heatOn);
+  renderMap();
+});
+function updateCounts(){
+  $('#c-list').textContent = fmt.format(filtered.length);
+  $('#c-crm').textContent = Object.keys(crm).length;
+  $('#c-tour').textContent = tour.length;
+  $('#top-stat').innerHTML = `<strong>${fmt.format(filtered.length)}</strong> DPE affichés`;
+  const due = Object.values(crm).filter(c => c.relance && c.relance <= today() && !['mandat','perdu'].includes(c.status)).length;
+  $('#top-crm').innerHTML = `<strong>${Object.keys(crm).length}</strong> suivis${due ? ` · <strong style="color:#ffcc80">${due}</strong> relance(s)` : ''}`;
+}
+map.on('moveend', () => { if (zoneMode() === 'rayon' && !center) drawCenter(); });
+
+/* Init */
+fillSettings();
+restoreSearch();
+renderList(); renderCrm(); renderTour(); renderStats(); updateCounts();
+})();
+</script>
+</body>
+</html>
